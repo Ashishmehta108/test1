@@ -123,9 +123,9 @@ export async function recompute(emailId: string) {
     last_at: Date | null;
   }>(
     `SELECT e.sent_at,
-            (SELECT count(*)::int FROM open_events  WHERE email_id = e.id AND kind = 'real')  AS opens,
-            (SELECT count(*)::int FROM open_events  WHERE email_id = e.id AND kind = 'maybe') AS maybes,
-            (SELECT count(*)::int FROM click_events WHERE email_id = e.id AND kind = 'real')  AS clicks,
+            (SELECT CAST(count(*) AS integer) FROM open_events  WHERE email_id = e.id AND kind = 'real')  AS opens,
+            (SELECT CAST(count(*) AS integer) FROM open_events  WHERE email_id = e.id AND kind = 'maybe') AS maybes,
+            (SELECT CAST(count(*) AS integer) FROM click_events WHERE email_id = e.id AND kind = 'real')  AS clicks,
             (SELECT min(at) FROM (SELECT at FROM open_events  WHERE email_id = e.id AND kind = 'real'
                                   UNION ALL
                                   SELECT at FROM click_events WHERE email_id = e.id AND kind = 'real') x) AS first_at,

@@ -53,13 +53,13 @@ export default async function ResultsPage({ searchParams }: { searchParams: SP }
     drafts: number;
     total: number;
   }>(
-    `SELECT count(*) FILTER (WHERE status <> 'draft')::int                AS sent,
-            count(*) FILTER (WHERE status IN ('opened','clicked'))::int    AS opened,
-            count(*) FILTER (WHERE status = 'clicked')::int                AS clicked,
-            count(*) FILTER (WHERE status = 'maybe')::int                  AS maybe,
-            count(*) FILTER (WHERE status = 'sent')::int                   AS waiting,
-            count(*) FILTER (WHERE status = 'draft')::int                  AS drafts,
-            count(*)::int                                                  AS total
+    `SELECT CAST(COALESCE(SUM(CASE WHEN status <> 'draft' THEN 1 ELSE 0 END), 0) AS integer) AS sent,
+            CAST(COALESCE(SUM(CASE WHEN status IN ('opened','clicked') THEN 1 ELSE 0 END), 0) AS integer) AS opened,
+            CAST(COALESCE(SUM(CASE WHEN status = 'clicked' THEN 1 ELSE 0 END), 0) AS integer) AS clicked,
+            CAST(COALESCE(SUM(CASE WHEN status = 'maybe' THEN 1 ELSE 0 END), 0) AS integer) AS maybe,
+            CAST(COALESCE(SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END), 0) AS integer) AS waiting,
+            CAST(COALESCE(SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END), 0) AS integer) AS drafts,
+            CAST(count(*) AS integer) AS total
        FROM emails WHERE owner_id = $1`,
     [viewing],
   ))!;
@@ -80,8 +80,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: SP }
             first_open_at, open_count, click_count
        FROM emails
       WHERE owner_id = $1 ${FILTER_SQL[filter]}
-        AND ($2 = '' OR recipient_email ILIKE '%' || $2 || '%' OR recipient_name ILIKE '%' || $2 || '%'
-             OR label ILIKE '%' || $2 || '%')
+        AND ($2 = '' OR LOWER(recipient_email) LIKE '%' || LOWER($2) || '%' OR LOWER(recipient_name) LIKE '%' || LOWER($2) || '%'
+             OR LOWER(label) LIKE '%' || LOWER($2) || '%')
       ORDER BY COALESCE(sent_at, created_at) DESC
       LIMIT 300`,
     [viewing, search],

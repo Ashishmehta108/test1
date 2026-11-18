@@ -5,7 +5,7 @@ import { ConfirmButton } from "@/components/ConfirmButton";
 import { CopyTextButton } from "@/components/Copy";
 import { Avatar, Notice } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
-import { q } from "@/lib/db";
+import { iso, q } from "@/lib/db";
 import { percent } from "@/lib/format";
 import { baseUrl } from "@/lib/request";
 
@@ -40,12 +40,13 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
   const members = await q<Member>(
     `SELECT u.id, u.name, u.email, u.role, u.active,
             (u.password_hash IS NOT NULL) AS has_password,
-            u.invite_token, (u.invite_expires > now()) AS invite_valid,
-            count(e.id) FILTER (WHERE e.status <> 'draft')::int AS sent,
-            count(e.id) FILTER (WHERE e.status IN ('opened','clicked'))::int AS opened
+            u.invite_token, (u.invite_expires > $1) AS invite_valid,
+            CAST(COALESCE(SUM(CASE WHEN e.status <> 'draft' THEN 1 ELSE 0 END), 0) AS integer) AS sent,
+            CAST(COALESCE(SUM(CASE WHEN e.status IN ('opened','clicked') THEN 1 ELSE 0 END), 0) AS integer) AS opened
        FROM users u LEFT JOIN emails e ON e.owner_id = u.id
       GROUP BY u.id
       ORDER BY u.role = 'admin' DESC, u.created_at`,
+    [iso()],
   );
 
   const invited = members.find((m) => m.id === v("invited") && m.invite_token);

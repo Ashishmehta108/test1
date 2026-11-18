@@ -2,7 +2,7 @@ import Link from "next/link";
 import { acceptInvite } from "@/app/actions";
 import { AuthFrame } from "@/components/AuthFrame";
 import { Notice } from "@/components/ui";
-import { one } from "@/lib/db";
+import { iso, one } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +18,8 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   const { token } = await params;
   const sp = await searchParams;
   const invite = await one<{ name: string; email: string }>(
-    `SELECT name, email FROM users WHERE invite_token = $1 AND invite_expires > now() AND active`,
-    [token],
+    `SELECT name, email FROM users WHERE invite_token = $1 AND invite_expires > $2 AND active`,
+    [token, iso()],
   );
   const error = typeof sp.error === "string" ? ERRORS[sp.error] : undefined;
 

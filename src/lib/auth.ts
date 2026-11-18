@@ -1,6 +1,6 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { one, q } from "./db";
+import { iso, one, q } from "./db";
 import { randomToken } from "./ids";
 import { clientIp } from "./request";
 
@@ -35,8 +35,8 @@ function cookieOptions() {
 export async function createSession(userId: string) {
   const token = randomToken(40);
   await q(
-    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, now() + ($3 || ' days')::interval)`,
-    [token, userId, String(SESSION_DAYS)],
+    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
+    [token, userId, iso(SESSION_DAYS * 86_400_000)],
   );
   (await cookies()).set(SESSION_COOKIE, token, cookieOptions());
 }
@@ -53,8 +53,8 @@ export async function userForSessionToken(token: string | undefined): Promise<Us
   return one<User>(
     `SELECT u.id, u.email, u.name, u.role, u.active
        FROM sessions s JOIN users u ON u.id = s.user_id
-      WHERE s.token = $1 AND s.expires_at > now() AND u.active`,
-    [token],
+      WHERE s.token = $1 AND s.expires_at > $2 AND u.active`,
+    [token, iso()],
   );
 }
 
@@ -67,9 +67,9 @@ export async function getUser(): Promise<User | undefined> {
     const ip = clientIp(await headers());
     if (ip) {
       await q(
-        `UPDATE users SET last_ip = $2, last_ip_at = now()
-          WHERE id = $1 AND (last_ip IS DISTINCT FROM $2 OR last_ip_at < now() - interval '10 minutes')`,
-        [user.id, ip],
+        `UPDATE users SET last_ip = $2, last_ip_at = $3
+          WHERE id = $1 AND (last_ip IS NULL OR last_ip <> $2 OR last_ip_at IS NULL OR last_ip_at < $4)`,
+        [user.id, ip, iso(), iso(-10 * 60_000)],
       );
     }
   }

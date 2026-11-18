@@ -53,14 +53,14 @@ export default async function EmailPage({ params }: { params: Promise<{ id: stri
 
   const links = await q<{ id: number; position: number; url: string; clicks: number }>(
     `SELECT l.id, l.position, l.url,
-            (SELECT count(*)::int FROM click_events c WHERE c.link_id = l.id AND c.kind = 'real') AS clicks
+            (SELECT CAST(count(*) AS integer) FROM click_events c WHERE c.link_id = l.id AND c.kind = 'real') AS clicks
        FROM links l WHERE l.email_id = $1 ORDER BY l.position`,
     [id],
   );
   const events = await q<Event>(
-    `SELECT id::text, 'open' AS type, at, user_agent, kind, reason, NULL AS url FROM open_events WHERE email_id = $1
+    `SELECT CAST(id AS text) AS id, 'open' AS type, at, user_agent, kind, reason, NULL AS url FROM open_events WHERE email_id = $1
      UNION ALL
-     SELECT c.id::text, 'click' AS type, c.at, c.user_agent, c.kind, c.reason, l.url
+     SELECT CAST(c.id AS text) AS id, 'click' AS type, c.at, c.user_agent, c.kind, c.reason, l.url
        FROM click_events c LEFT JOIN links l ON l.id = c.link_id WHERE c.email_id = $1
      ORDER BY at DESC
      LIMIT 200`,

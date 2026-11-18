@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSession, destroySession, requireAdmin, requireUser, type User } from "@/lib/auth";
-import { one, q } from "@/lib/db";
+import { iso, one, q } from "@/lib/db";
 import { isEmail, normaliseUrl } from "@/lib/format";
 import { newId, randomToken } from "@/lib/ids";
 import { recompute } from "@/lib/track";
@@ -60,9 +60,9 @@ export async function acceptInvite(form: FormData) {
 
   const user = await one<{ id: string }>(
     `UPDATE users SET password_hash = $2, invite_token = NULL, invite_expires = NULL
-      WHERE invite_token = $1 AND invite_expires > now() AND active
+      WHERE invite_token = $1 AND invite_expires > $3 AND active
       RETURNING id`,
-    [token, await bcrypt.hash(password, 10)],
+    [token, await bcrypt.hash(password, 10), iso()],
   );
   if (!user) back(path, { error: "expired" });
   await createSession(user!.id);
@@ -114,7 +114,7 @@ export async function createEmail(form: FormData) {
 export async function markSent(emailId: string) {
   const user = await requireUser();
   await emailForUser(user, emailId);
-  await q(`UPDATE emails SET sent_at = now() WHERE id = $1 AND sent_at IS NULL`, [emailId]);
+  await q(`UPDATE emails SET sent_at = $2 WHERE id = $1 AND sent_at IS NULL`, [emailId, iso()]);
   await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
 }
@@ -163,8 +163,8 @@ export async function inviteUser(form: FormData) {
   const id = newId();
   await q(
     `INSERT INTO users (id, email, name, role, invite_token, invite_expires)
-     VALUES ($1,$2,$3,'user',$4, now() + ($5 || ' hours')::interval)`,
-    [id, email, name, randomToken(32), String(INVITE_HOURS)],
+     VALUES ($1,$2,$3,'user',$4,$5)`,
+    [id, email, name, randomToken(32), iso(INVITE_HOURS * 3_600_000)],
   );
   back("/team", { invited: id });
 }
@@ -172,9 +172,9 @@ export async function inviteUser(form: FormData) {
 export async function renewInvite(userId: string) {
   await requireAdmin();
   await q(
-    `UPDATE users SET invite_token = $2, invite_expires = now() + ($3 || ' hours')::interval
+    `UPDATE users SET invite_token = $2, invite_expires = $3
       WHERE id = $1 AND password_hash IS NULL`,
-    [userId, randomToken(32), String(INVITE_HOURS)],
+    [userId, randomToken(32), iso(INVITE_HOURS * 3_600_000)],
   );
   back("/team", { invited: userId });
 }

@@ -3,15 +3,20 @@ import { newId } from "./ids";
 
 /**
  * One tiny interface over two Postgres drivers:
- *  - Neon (serverless HTTP) when DATABASE_URL is set — used on Vercel.
- *  - PGlite (Postgres compiled to WASM, stored in ./.data) otherwise — used locally,
- *    so nothing needs installing to try the app.
- * Both speak the same SQL, so the rest of the app doesn't care which one runs.
+ *  - Neon (Postgres over HTTP) when DATABASE_URL is set — used on Vercel.
+ *  - PGlite (Postgres compiled to WASM, stored in ./.data/pglite) otherwise — used
+ *    locally, so nothing needs installing to try the app.
+ * Both are Postgres, so the rest of the app doesn't care which one runs.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
 interface Db {
   query<T = Row>(text: string, params?: unknown[]): Promise<T[]>;
+}
+
+/** A time as ISO text, optionally shifted by some milliseconds. Works in both databases. */
+export function iso(offsetMs = 0): string {
+  return new Date(Date.now() + offsetMs).toISOString();
 }
 
 const SCHEMA: string[] = [
@@ -84,6 +89,23 @@ const SCHEMA: string[] = [
 
 async function connect(): Promise<Db> {
   const url = process.env.DATABASE_URL?.trim();
+  if (url && !/\.neon\.tech/.test(url)) {
+    // Any ordinary Postgres server (Aiven, Supabase, RDS, ...) over a normal, verified connection.
+    // Some hosts (Aiven) use their own certificate authority: paste its certificate into DATABASE_CA.
+    const { Pool } = await import("pg");
+    const clean = new URL(url);
+    const wantsSsl = clean.searchParams.get("sslmode") !== "disable";
+    clean.searchParams.delete("sslmode"); // ssl is set explicitly below
+    const ca = process.env.DATABASE_CA?.trim().replace(/\\n/g, "\n");
+    const pool = new Pool({
+      connectionString: clean.toString(),
+      ssl: wantsSsl ? (ca ? { ca } : true) : false,
+      max: 3,
+    });
+    return {
+      query: async (text, params = []) => (await pool.query(text, params as never[])).rows as never,
+    };
+  }
   if (url) {
     const { neon } = await import("@neondatabase/serverless");
     const sql = neon(url);
@@ -102,7 +124,7 @@ async function connect(): Promise<Db> {
 }
 
 async function seedAdmin(db: Db) {
-  const [{ n }] = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM users`);
+  const [{ n }] = await db.query<{ n: number }>(`SELECT CAST(count(*) AS integer) AS n FROM users`);
   if (n > 0) return;
   const email = process.env.ADMIN_EMAIL?.trim().toLowerCase();
   const password = process.env.ADMIN_PASSWORD;
