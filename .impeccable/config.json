@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/app/globals.css"
+        ],
+        "createdAt": "2026-11-18T06:08:38.717Z",
+        "reason": "Claude triage: L217 is the CSS border-triangle that draws the envelope flap in the empty-state illustration, not an accent border on a card"
+      }
+    ]
+  }
+}

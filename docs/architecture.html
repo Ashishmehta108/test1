@@ -1,0 +1,310 @@
+<title>Email Open Tracker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Instrument+Sans:wght@500;600;700&display=swap">
+<style>
+/* Layout: one calm reading column (max 920px); each section = short heading + one hand-built diagram. Light only, by request. */
+:root {
+  color-scheme: light;
+  --paper: #fafaf8;
+  --card: #ffffff;
+  --ink: #1d1f22;
+  --ink-2: #555a62;
+  --rule: #e4e4e0;
+  --rule-strong: #cfcfca;
+  --blue: #2c5aa0;
+  --blue-wash: #eef3fa;
+  --green: #1f7a4d;
+  --green-wash: #eaf5ef;
+  --amber: #8a5a00;
+  --amber-wash: #fbf3e2;
+  --grey-wash: #f1f1ee;
+  --font-head: "Instrument Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 15.5px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 56px 88px;
+  -webkit-font-smoothing: antialiased;
+}
+.page { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 64px; }
+h1, h2, h3 { font-family: var(--font-head); margin: 0; text-wrap: balance; line-height: 1.2; }
+h1 { font-size: clamp(32px, 5.5vw, 46px); font-weight: 600; letter-spacing: -0.02em; }
+h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+h3 { font-size: 15px; font-weight: 600; }
+p { margin: 0; max-width: 62ch; }
+.lead { font-size: 18px; color: var(--ink-2); }
+.small { font-size: 14px; color: var(--ink-2); }
+section { display: flex; flex-direction: column; gap: 20px; }
+.head { display: flex; flex-direction: column; gap: 6px; }
+.kicker { font-size: 13px; font-weight: 500; color: var(--blue); }
+
+header { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); padding-block-end: 40px; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: var(--ink-2); }
+.facts b { color: var(--ink); font-weight: 600; }
+
+/* 1. Swimlane */
+.lanes { border: 1px solid var(--rule); border-radius: 8px; background: var(--card); overflow-x: auto; }
+.lanes-grid { display: grid; grid-template-columns: repeat(3, minmax(200px, 1fr)); min-width: 640px; }
+.lane-title { padding: 14px 18px; font-family: var(--font-head); font-weight: 600; font-size: 14px; border-bottom: 1px solid var(--rule); background: var(--grey-wash); }
+.lane-title span { display: block; font-family: var(--font-body); font-weight: 400; font-size: 12.5px; color: var(--ink-2); }
+.cell { padding: 14px 18px; border-right: 1px solid var(--rule); min-height: 72px; display: flex; align-items: center; }
+.cell:nth-child(3n) { border-right: 0; }
+.step { display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; font-size: 14px; }
+.n { width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--rule-strong); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--ink-2); background: var(--card); font-variant-numeric: tabular-nums; }
+.step.hl .n { background: var(--blue); border-color: var(--blue); color: #fff; }
+.step.ok .n { background: var(--green); border-color: var(--green); color: #fff; }
+.down { color: var(--rule-strong); font-size: 13px; padding-left: 7px; }
+
+/* 2. Decision list */
+.checks { display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); }
+.check { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--rule); }
+.check:last-child { border-bottom: 0; }
+.check .q { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.check .q b { font-weight: 600; font-size: 15px; }
+.check .q span { font-size: 13.5px; color: var(--ink-2); }
+
+.tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: 6px; white-space: nowrap; }
+.tag::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.t-none { color: var(--ink-2); background: var(--grey-wash); }
+.t-maybe { color: var(--amber); background: var(--amber-wash); }
+.t-open { color: var(--green); background: var(--green-wash); }
+.t-click { color: var(--blue); background: var(--blue-wash); }
+
+/* 3. Who sees what */
+.org { display: grid; grid-template-columns: 260px 1fr; gap: 0; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); overflow: hidden; }
+.org-admin { padding: 22px; border-right: 1px solid var(--rule); background: var(--blue-wash); display: flex; flex-direction: column; gap: 10px; }
+.org-admin ul, .org-user ul { margin: 0; padding-left: 18px; font-size: 14px; display: flex; flex-direction: column; gap: 4px; }
+.org-users { display: grid; grid-template-columns: repeat(2, 1fr); }
+.org-user { padding: 18px 20px; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 6px; }
+.org-user:nth-child(2n) { border-right: 0; }
+.org-user:nth-last-child(-n+2) { border-bottom: 0; }
+.who { display: flex; align-items: center; gap: 10px; }
+.av { width: 30px; height: 30px; border-radius: 50%; background: var(--grey-wash); border: 1px solid var(--rule); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.org-admin .av { background: var(--blue); color: #fff; border-color: var(--blue); }
+.mini { font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+/* 4. Dashboard mock */
+.mock { border: 1px solid var(--rule-strong); border-radius: 8px; background: var(--card); overflow: hidden; }
+.mock-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid var(--rule); background: var(--grey-wash); font-size: 13px; color: var(--ink-2); }
+.mock-bar b { color: var(--ink); font-weight: 600; }
+.example { font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--amber); }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--rule); }
+.stat { padding: 16px 18px; border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 2px; }
+.stat:last-child { border-right: 0; }
+.stat .v { font-family: var(--font-head); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 13px; color: var(--ink-2); }
+.tbl { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
+th, td { text-align: left; padding: 11px 18px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th { font-size: 12.5px; font-weight: 500; color: var(--ink-2); }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; color: var(--ink-2); }
+
+/* 5. Status legend */
+.legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.leg { display: flex; flex-direction: column; gap: 8px; padding: 16px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); }
+.leg p { font-size: 14px; color: var(--ink-2); }
+
+/* 6. Setup */
+.stack { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--rule); border-radius: 8px; background: var(--card); }
+.part { padding: 18px 20px; border-right: 1px solid var(--rule); display: flex; flex-direction: column; gap: 4px; }
+.part:last-child { border-right: 0; }
+.part .price { font-family: var(--font-head); font-size: 20px; font-weight: 600; margin-top: 6px; }
+
+/* 7. Plan */
+.plan { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; position: relative; }
+.stage { padding: 0 20px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.stage-top { display: flex; align-items: center; gap: 10px; }
+.stage-top .line { flex: 1; height: 1px; background: var(--rule-strong); }
+.stage.later .n { border-style: dashed; }
+.stage ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-2); display: flex; flex-direction: column; gap: 3px; }
+
+@media (max-width: 760px) {
+  .org { grid-template-columns: 1fr; }
+  .org-admin { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .stats, .legend { grid-template-columns: 1fr 1fr; }
+  .stat:nth-child(2) { border-right: 0; }
+  .stat:nth-child(-n+2) { border-bottom: 1px solid var(--rule); }
+  .stack, .plan { grid-template-columns: 1fr; }
+  .part { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .part:last-child { border-bottom: 0; }
+  .plan { gap: 24px; }
+  .stage-top .line { display: none; }
+}
+@media (max-width: 460px) {
+  .org-users, .legend { grid-template-columns: 1fr; }
+  .org-user { border-right: 0; }
+  .org-user:nth-last-child(2) { border-bottom: 1px solid var(--rule); }
+  .check { grid-template-columns: 1fr; gap: 10px; }
+}
+</style>
+
+<div class="page">
+
+<header>
+  <h1>Email Open Tracker</h1>
+  <p class="lead">See who opened the emails you send from Gmail, and who clicked your links. You keep sending from Gmail exactly as you do now.</p>
+  <div class="facts">
+    <span><b>5</b> people on the team</span>
+    <span><b>~1,000</b> emails a month</span>
+    <span>Costs <b>$0</b> a month</span>
+  </div>
+</header>
+
+<section>
+  <div class="head">
+    <div class="kicker">How it works</div>
+    <h2>A tiny invisible picture does the tracking</h2>
+    <p class="small">Every email gets its own invisible picture. When the person opens the email, their mail app loads the picture from our tracker, and that tells us they opened it.</p>
+  </div>
+  <div class="lanes">
+    <div class="lanes-grid">
+      <div class="lane-title">You<span>in your Gmail</span></div>
+      <div class="lane-title">The person you emailed<span>any mail app</span></div>
+      <div class="lane-title">Tracker<span>our website</span></div>
+
+      <div class="cell"><div class="step"><div class="n">1</div><div>Write your email in Gmail like normal</div></div></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+
+      <div class="cell"><div class="step hl"><div class="n">2</div><div>Open the tracker, type their email, click <b>Copy</b></div></div></div>
+      <div class="cell"></div>
+      <div class="cell"><div class="step"><div class="n">3</div><div>Makes an invisible picture just for them</div></div></div>
+
+      <div class="cell"><div class="step"><div class="n">4</div><div>Paste it at the bottom of your email and hit <b>Send</b></div></div></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+
+      <div class="cell"><div class="step hl"><div class="n">5</div><div>Click <b>Mark as sent</b> in the tracker</div></div></div>
+      <div class="cell"></div>
+      <div class="cell"></div>
+
+      <div class="cell"></div>
+      <div class="cell"><div class="step"><div class="n">6</div><div>Opens your email, and the picture loads quietly</div></div></div>
+      <div class="cell"><div class="step ok"><div class="n">7</div><div>Shows <b>Opened</b> with the time</div></div></div>
+    </div>
+  </div>
+  <p class="small">Links work the same way. A link in your email goes through the tracker first, and the click is recorded before the person lands on your page.</p>
+</section>
+
+<section>
+  <div class="head">
+    <div class="kicker">Keeping it accurate</div>
+    <h2>Not every picture load is a real person</h2>
+    <p class="small">Gmail, Apple and office security tools sometimes load pictures on their own. The tracker checks every load against these questions before counting it.</p>
+  </div>
+  <div class="checks">
+    <div class="check">
+      <div class="q"><b>Loaded before you clicked "Mark as sent"?</b><span>That was Gmail showing you a preview while you wrote it.</span></div>
+      <span class="tag t-none">Not counted</span>
+    </div>
+    <div class="check">
+      <div class="q"><b>Is it you, looking at your Sent folder?</b><span>The tracker recognises your own computer.</span></div>
+      <span class="tag t-none">Not counted</span>
+    </div>
+    <div class="check">
+      <div class="q"><b>Did an iPhone or Mac load it automatically?</b><span>Apple Mail loads every picture by itself, so we can't be sure a person read it.</span></div>
+      <span class="tag t-maybe">Maybe opened</span>
+    </div>
+    <div class="check">
+      <div class="q"><b>Anything else</b><span>A real person opened it.</span></div>
+      <span class="tag t-open">Opened</span>
+    </div>
+    <div class="check">
+      <div class="q"><b>They clicked a link</b><span>The strongest sign. This counts as opened even if their app blocked pictures.</span></div>
+      <span class="tag t-click">Clicked</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <div class="kicker">Who sees what</div>
+    <h2>Everyone sees their own results</h2>
+    <p class="small">There are no combined team numbers. You, as admin, can look at each person's results one at a time.</p>
+  </div>
+  <div class="org">
+    <div class="org-admin">
+      <div class="who"><div class="av">A</div><h3>Admin (you)</h3></div>
+      <ul>
+        <li>Pick any team member and see their results</li>
+        <li>Add new people with an invite link</li>
+        <li>Remove or pause someone</li>
+        <li>Also sends and tracks your own emails</li>
+      </ul>
+    </div>
+    <div class="org-users">
+      <div class="org-user"><div class="who"><div class="av">R</div><h3>Team member</h3></div><div class="mini">Sees only their own emails and results</div></div>
+      <div class="org-user"><div class="who"><div class="av">K</div><h3>Team member</h3></div><div class="mini">Sees only their own emails and results</div></div>
+      <div class="org-user"><div class="who"><div class="av">S</div><h3>Team member</h3></div><div class="mini">Sees only their own emails and results</div></div>
+      <div class="org-user"><div class="who"><div class="av">M</div><h3>Team member</h3></div><div class="mini">Sees only their own emails and results</div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <div class="kicker">What you'll see</div>
+    <h2>Your results page</h2>
+  </div>
+  <div class="mock">
+    <div class="mock-bar"><span>Showing results for <b>Riya</b> · November</span><span class="example">Example data</span></div>
+    <div class="stats">
+      <div class="stat"><span class="v">186</span><span class="l">Emails sent</span></div>
+      <div class="stat"><span class="v">47%</span><span class="l">Opened</span></div>
+      <div class="stat"><span class="v">12%</span><span class="l">Clicked a link</span></div>
+      <div class="stat"><span class="v">19</span><span class="l">Maybe opened</span></div>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Sent to</th><th>Status</th><th>First opened</th><th>Times opened</th></tr></thead>
+        <tbody>
+          <tr><td>priya@acme.com</td><td><span class="tag t-click">Clicked</span></td><td class="num">Today, 10:42</td><td class="num">3</td></tr>
+          <tr><td>james@northwind.co</td><td><span class="tag t-open">Opened</span></td><td class="num">Today, 09:15</td><td class="num">1</td></tr>
+          <tr><td>lena@brightpath.io</td><td><span class="tag t-maybe">Maybe opened</span></td><td class="num">Yesterday, 18:03</td><td class="num">1</td></tr>
+          <tr><td>omar@fieldstone.com</td><td><span class="tag t-none">Not opened yet</span></td><td class="num">—</td><td class="num">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <div class="kicker">Where it lives</div>
+    <h2>Two free services</h2>
+    <p class="small">The tracker has to be online all the time so pictures can load whenever someone opens an email, even when your laptop is off.</p>
+  </div>
+  <div class="stack">
+    <div class="part"><h3>Vercel</h3><p class="small">Runs the tracker website</p><span class="price">Free</span></div>
+    <div class="part"><h3>Neon</h3><p class="small">Stores who opened what</p><span class="price">Free</span></div>
+    <div class="part"><h3>Your own web address</h3><p class="small">Optional, like track.yourcompany.com. Emails are less likely to land in spam.</p><span class="price">Optional</span></div>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <div class="kicker">The plan</div>
+    <h2>What gets built, in order</h2>
+  </div>
+  <div class="plan">
+    <div class="stage">
+      <div class="stage-top"><div class="n">1</div><h3>Tracking works</h3><div class="line"></div></div>
+      <ul><li>Login for admin and team</li><li>Copy the picture for each email</li><li>Opens and clicks get recorded</li></ul>
+    </div>
+    <div class="stage">
+      <div class="stage-top"><div class="n">2</div><h3>Results pages</h3><div class="line"></div></div>
+      <ul><li>Your results page, like the example above</li><li>History for each person you emailed</li><li>Admin can switch between team members</li></ul>
+    </div>
+    <div class="stage later">
+      <div class="stage-top"><div class="n">3</div><h3>Maybe later</h3></div>
+      <ul><li>Chrome add-on that adds the picture to every Gmail automatically</li><li>Alert when someone important opens</li></ul>
+    </div>
+  </div>
+</section>
+
+</div>
