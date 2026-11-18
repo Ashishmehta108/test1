@@ -1,0 +1,15 @@
+/* Share card on the results page. Uses the colours and buttons from globals.css. */
+.share-card { padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; }
+.share-text { color: var(--ink-2); font-size: 14px; max-width: 46ch; }
+.share-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.share-input {
+  flex: 1 1 180px; min-width: 0; height: 34px; padding: 6px 10px;
+  font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+}
+.share-note { font-size: 13px; color: var(--ink-3); }
+.share-note-bad { color: var(--red); }
+.share-quiet {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  padding-top: 12px; border-top: 1px solid var(--rule);
+}

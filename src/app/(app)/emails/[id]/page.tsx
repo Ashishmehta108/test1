@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteEmail, ignoreEvent, markNotSent, markSent } from "@/app/actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { ShareCard } from "@/components/Share";
 import { CopyLinkButton, CopyPictureButton, PasteCheck } from "@/components/Copy";
 import { IconBack, IconSend } from "@/components/Icons";
 import { When } from "@/components/When";
@@ -29,6 +30,7 @@ type Email = {
   open_count: number;
   maybe_count: number;
   click_count: number;
+  share_token: string | null;
 };
 
 type Event = {
@@ -45,27 +47,29 @@ export default async function EmailPage({ params }: { params: Promise<{ id: stri
   const me = await requireUser();
   const { id } = await params;
 
-  const email = await one<Email>(
-    `SELECT e.*, u.name AS owner_name FROM emails e JOIN users u ON u.id = e.owner_id WHERE e.id = $1`,
-    [id],
-  );
+  // Everything the page needs is fetched at the same time (one wait instead of three).
+  const [email, links, events] = await Promise.all([
+    one<Email>(
+      `SELECT e.*, u.name AS owner_name FROM emails e JOIN users u ON u.id = e.owner_id WHERE e.id = $1`,
+      [id],
+    ),
+    q<{ id: number; position: number; url: string; clicks: number }>(
+      `SELECT l.id, l.position, l.url,
+              (SELECT CAST(count(*) AS integer) FROM click_events c WHERE c.link_id = l.id AND c.kind = 'real') AS clicks
+         FROM links l WHERE l.email_id = $1 ORDER BY l.position`,
+      [id],
+    ),
+    q<Event>(
+      `SELECT CAST(id AS text) AS id, 'open' AS type, at, user_agent, kind, reason, NULL AS url FROM open_events WHERE email_id = $1
+       UNION ALL
+       SELECT CAST(c.id AS text) AS id, 'click' AS type, c.at, c.user_agent, c.kind, c.reason, l.url
+         FROM click_events c LEFT JOIN links l ON l.id = c.link_id WHERE c.email_id = $1
+       ORDER BY at DESC
+       LIMIT 200`,
+      [id],
+    ),
+  ]);
   if (!email || (email.owner_id !== me.id && me.role !== "admin")) notFound();
-
-  const links = await q<{ id: number; position: number; url: string; clicks: number }>(
-    `SELECT l.id, l.position, l.url,
-            (SELECT CAST(count(*) AS integer) FROM click_events c WHERE c.link_id = l.id AND c.kind = 'real') AS clicks
-       FROM links l WHERE l.email_id = $1 ORDER BY l.position`,
-    [id],
-  );
-  const events = await q<Event>(
-    `SELECT CAST(id AS text) AS id, 'open' AS type, at, user_agent, kind, reason, NULL AS url FROM open_events WHERE email_id = $1
-     UNION ALL
-     SELECT CAST(c.id AS text) AS id, 'click' AS type, c.at, c.user_agent, c.kind, c.reason, l.url
-       FROM click_events c LEFT JOIN links l ON l.id = c.link_id WHERE c.email_id = $1
-     ORDER BY at DESC
-     LIMIT 200`,
-    [id],
-  );
 
   const base = baseUrl(await headers());
   const pixelUrl = `${base}/o/${email.token}.gif`;
@@ -246,6 +250,8 @@ export default async function EmailPage({ params }: { params: Promise<{ id: stri
               )}
             </dl>
           </section>
+
+          <ShareCard emailId={email.id} shareUrl={email.share_token ? `${base}/share/${email.share_token}` : null} />
 
           {sent && (
             <section className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -1,0 +1,30 @@
+/* Polish: pending buttons, spinners and small quiet notes. Light and subtle. */
+
+/* Buttons: short, gentle transitions and a soft focus ring. */
+.btn { transition: background-color 0.12s, border-color 0.12s, color 0.12s, box-shadow 0.12s, opacity 0.12s; }
+.btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; box-shadow: 0 0 0 3px var(--blue-wash); }
+.btn:active:not(:disabled) { box-shadow: inset 0 1px 2px rgba(29, 31, 34, 0.08); }
+
+/* While a form is saving, the button is disabled and looks paused, not broken. */
+.btn:disabled { cursor: progress; opacity: 0.8; }
+
+/* Keeps the button the same width while it swaps to its "…ing" label. */
+.sbtn-stack { display: inline-grid; justify-items: center; }
+.sbtn-stack > span { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+.sbtn-hidden { visibility: hidden; }
+
+/* Small spinner. Quiet, one ring, inherits the button text colour. */
+.spin {
+  display: inline-block; width: 13px; height: 13px; flex-shrink: 0;
+  margin-right: 8px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  opacity: 0.85; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
+
+/* A one-line, calm note under a list (for example, "just you so far"). */
+.quiet-note {
+  padding: 16px 20px; border-top: 1px solid var(--rule);
+  font-size: 13.5px; color: var(--ink-3); line-height: 1.5;
+}

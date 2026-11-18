@@ -1,4 +1,5 @@
 import { changePassword } from "@/app/actions";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Notice } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 
@@ -40,9 +41,9 @@ export default async function AccountPage({ searchParams }: { searchParams: SP }
           <span className="hint">At least 8 characters.</span>
         </div>
         <div className="actions">
-          <button type="submit" className="btn btn-primary">
+          <SubmitButton className="btn btn-primary" pendingText="Saving…">
             Save new password
-          </button>
+          </SubmitButton>
         </div>
       </form>
     </div>

@@ -12,6 +12,8 @@ import { newId } from "./ids";
 type Row = Record<string, any>;
 interface Db {
   query<T = Row>(text: string, params?: unknown[]): Promise<T[]>;
+  /** Run several statements (no parameters) in as few trips to the database as possible. */
+  exec(statements: string[]): Promise<void>;
 }
 
 /** A time as ISO text, optionally shifted by some milliseconds. Works in both databases. */
@@ -85,6 +87,8 @@ const SCHEMA: string[] = [
      reason     text
    )`,
   `CREATE INDEX IF NOT EXISTS click_events_email_idx ON click_events (email_id, at)`,
+  `ALTER TABLE emails ADD COLUMN IF NOT EXISTS share_token text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS emails_share_idx ON emails (share_token)`,
 ];
 
 async function connect(): Promise<Db> {
@@ -101,9 +105,14 @@ async function connect(): Promise<Db> {
       connectionString: clean.toString(),
       ssl: wantsSsl ? (ca ? { ca } : true) : false,
       max: 3,
+      keepAlive: true,
     });
     return {
       query: async (text, params = []) => (await pool.query(text, params as never[])).rows as never,
+      // One trip for the whole list (the simple query protocol accepts many statements).
+      exec: async (statements) => {
+        await pool.query(statements.join(";\n"));
+      },
     };
   }
   if (url) {
@@ -111,6 +120,9 @@ async function connect(): Promise<Db> {
     const sql = neon(url);
     return {
       query: async (text, params = []) => (await sql.query(text, params)) as never,
+      exec: async (statements) => {
+        for (const s of statements) await sql.query(s);
+      },
     };
   }
   const { PGlite } = await import("@electric-sql/pglite");
@@ -120,6 +132,9 @@ async function connect(): Promise<Db> {
   const pg = new PGlite(dir);
   return {
     query: async (text, params = []) => (await pg.query(text, params)).rows as never,
+    exec: async (statements) => {
+      await pg.exec(statements.join(";\n"));
+    },
   };
 }
 
@@ -142,7 +157,7 @@ async function seedAdmin(db: Db) {
 
 async function init(): Promise<Db> {
   const db = await connect();
-  for (const stmt of SCHEMA) await db.query(stmt);
+  await db.exec(SCHEMA);
   await seedAdmin(db);
   return db;
 }

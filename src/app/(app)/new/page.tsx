@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createEmail } from "@/app/actions";
 import { IconBack } from "@/components/Icons";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Notice } from "@/components/ui";
 import { requireUser } from "@/lib/auth";
 
@@ -78,9 +79,9 @@ export default async function NewEmailPage({ searchParams }: { searchParams: SP 
         </div>
 
         <div className="actions">
-          <button type="submit" className="btn btn-primary btn-lg">
+          <SubmitButton className="btn btn-primary btn-lg" pendingText="Creating…">
             Create tracking picture
-          </button>
+          </SubmitButton>
           <Link href="/" className="btn btn-quiet">
             Cancel
           </Link>

@@ -114,39 +114,27 @@ export async function recordClick(token: string, linkId: number, hit: Hit) {
  * mark-as-sent / undo stay consistent.
  */
 export async function recompute(emailId: string) {
-  const row = await one<{
-    sent_at: Date | null;
-    opens: number;
-    maybes: number;
-    clicks: number;
-    first_at: Date | null;
-    last_at: Date | null;
-  }>(
-    `SELECT e.sent_at,
-            (SELECT CAST(count(*) AS integer) FROM open_events  WHERE email_id = e.id AND kind = 'real')  AS opens,
-            (SELECT CAST(count(*) AS integer) FROM open_events  WHERE email_id = e.id AND kind = 'maybe') AS maybes,
-            (SELECT CAST(count(*) AS integer) FROM click_events WHERE email_id = e.id AND kind = 'real')  AS clicks,
-            (SELECT min(at) FROM (SELECT at FROM open_events  WHERE email_id = e.id AND kind = 'real'
-                                  UNION ALL
-                                  SELECT at FROM click_events WHERE email_id = e.id AND kind = 'real') x) AS first_at,
-            (SELECT max(at) FROM (SELECT at FROM open_events  WHERE email_id = e.id AND kind = 'real'
-                                  UNION ALL
-                                  SELECT at FROM click_events WHERE email_id = e.id AND kind = 'real') x) AS last_at
-       FROM emails e WHERE e.id = $1`,
-    [emailId],
-  );
-  if (!row) return;
-
-  let status: Status = "sent";
-  if (!row.sent_at) status = "draft";
-  else if (row.clicks > 0) status = "clicked";
-  else if (row.opens > 0) status = "opened";
-  else if (row.maybes > 0) status = "maybe";
-
   await q(
-    `UPDATE emails SET status = $2, open_count = $3, maybe_count = $4, click_count = $5,
-                       first_open_at = $6, last_open_at = $7
-      WHERE id = $1`,
-    [emailId, status, row.opens, row.maybes, row.clicks, row.first_at, row.last_at],
+    `UPDATE emails e SET
+            status = CASE WHEN e.sent_at IS NULL THEN 'draft'
+                          WHEN s.clicks > 0 THEN 'clicked'
+                          WHEN s.opens  > 0 THEN 'opened'
+                          WHEN s.maybes > 0 THEN 'maybe'
+                          ELSE 'sent' END,
+            open_count = s.opens, maybe_count = s.maybes, click_count = s.clicks,
+            first_open_at = s.first_at, last_open_at = s.last_at
+       FROM (SELECT
+              (SELECT CAST(count(*) AS integer) FROM open_events  WHERE email_id = $1 AND kind = 'real')  AS opens,
+              (SELECT CAST(count(*) AS integer) FROM open_events  WHERE email_id = $1 AND kind = 'maybe') AS maybes,
+              (SELECT CAST(count(*) AS integer) FROM click_events WHERE email_id = $1 AND kind = 'real')  AS clicks,
+              (SELECT min(at) FROM (SELECT at FROM open_events  WHERE email_id = $1 AND kind = 'real'
+                                    UNION ALL
+                                    SELECT at FROM click_events WHERE email_id = $1 AND kind = 'real') x) AS first_at,
+              (SELECT max(at) FROM (SELECT at FROM open_events  WHERE email_id = $1 AND kind = 'real'
+                                    UNION ALL
+                                    SELECT at FROM click_events WHERE email_id = $1 AND kind = 'real') x) AS last_at
+            ) s
+      WHERE e.id = $1`,
+    [emailId],
   );
 }

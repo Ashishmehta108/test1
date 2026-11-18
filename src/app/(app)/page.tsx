@@ -44,7 +44,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: SP }
   const filter = (FILTERS.find((f) => f.key === str("show"))?.key ?? "all") as FilterKey;
   const search = str("q").slice(0, 100);
 
-  const totals = (await one<{
+  const [totalsRow, rows] = await Promise.all([
+    one<{
     sent: number;
     opened: number;
     clicked: number;
@@ -62,9 +63,8 @@ export default async function ResultsPage({ searchParams }: { searchParams: SP }
             CAST(count(*) AS integer) AS total
        FROM emails WHERE owner_id = $1`,
     [viewing],
-  ))!;
-
-  const rows = await q<{
+  ),
+    q<{
     id: string;
     recipient_email: string;
     recipient_name: string | null;
@@ -85,7 +85,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: SP }
       ORDER BY COALESCE(sent_at, created_at) DESC
       LIMIT 300`,
     [viewing, search],
-  );
+  ),
+  ]);
+  const totals = totalsRow!;
 
   const counts: Record<FilterKey, number> = {
     all: totals.total,
@@ -209,7 +211,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: SP }
                 <h2>No tracked emails yet</h2>
                 <p>
                   {viewingSelf
-                    ? "Write your email in Gmail as usual, then come here to get an invisible tracking picture for it. It takes about ten seconds."
+                    ? "Write your email in Gmail as usual, then add a tracking picture here. It takes about ten seconds."
                     : `${viewingPerson.name} hasn't tracked any emails yet.`}
                 </p>
                 {viewingSelf && (

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { inviteUser, renewInvite, setActive } from "@/app/actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
 import { CopyTextButton } from "@/components/Copy";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Avatar, Notice } from "@/components/ui";
 import { requireAdmin } from "@/lib/auth";
 import { iso, q } from "@/lib/db";
@@ -112,27 +113,35 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
                   )}
                   {pending && m.active && !m.invite_valid && (
                     <form action={renewInvite.bind(null, m.id)} className="inline-form">
-                      <button className="btn btn-sm" type="submit">
+                      <SubmitButton className="btn btn-sm" pendingText="Creating…">
                         New invite link
-                      </button>
+                      </SubmitButton>
                     </form>
                   )}
                   {m.id !== me.id &&
                     (m.active ? (
                       <form action={setActive.bind(null, m.id, false)} className="inline-form">
-                        <ConfirmButton className="btn btn-sm btn-quiet btn-danger" label="Pause" confirmLabel="Click to confirm" />
+                        <ConfirmButton
+                          className="btn btn-sm btn-quiet btn-danger"
+                          label="Pause"
+                          confirmLabel="Click to confirm"
+                          pendingText="Pausing…"
+                        />
                       </form>
                     ) : (
                       <form action={setActive.bind(null, m.id, true)} className="inline-form">
-                        <button className="btn btn-sm" type="submit">
+                        <SubmitButton className="btn btn-sm" pendingText="Turning on…">
                           Turn back on
-                        </button>
+                        </SubmitButton>
                       </form>
                     ))}
                 </div>
               </div>
             );
           })}
+          {members.length === 1 && (
+            <p className="quiet-note">It&apos;s just you so far. Add someone with the form on the right, and they&apos;ll get their own results.</p>
+          )}
         </section>
 
         <section className="card card-pad">
@@ -157,9 +166,9 @@ export default async function TeamPage({ searchParams }: { searchParams: SP }) {
                 defaultValue={v("email")}
               />
             </div>
-            <button type="submit" className="btn btn-primary">
+            <SubmitButton className="btn btn-primary" pendingText="Creating…">
               Create invite link
-            </button>
+            </SubmitButton>
           </form>
         </section>
       </div>

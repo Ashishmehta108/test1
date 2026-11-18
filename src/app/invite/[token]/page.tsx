@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { acceptInvite } from "@/app/actions";
 import { AuthFrame } from "@/components/AuthFrame";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Notice } from "@/components/ui";
 import { iso, one } from "@/lib/db";
 
@@ -55,9 +56,9 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
           <label htmlFor="confirm">Type it again</label>
           <input id="confirm" name="confirm" type="password" className="input" required minLength={8} autoComplete="new-password" />
         </div>
-        <button type="submit" className="btn btn-primary btn-lg">
+        <SubmitButton className="btn btn-primary btn-lg" pendingText="Creating account…">
           Create my account
-        </button>
+        </SubmitButton>
       </form>
     </AuthFrame>
   );

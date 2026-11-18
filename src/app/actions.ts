@@ -21,12 +21,9 @@ function back(path: string, params: Record<string, string>): never {
   redirect(qs ? `${path}?${qs}` : path);
 }
 
-async function emailForUser(user: User, emailId: string) {
-  const email = await one<{ id: string; owner_id: string }>(`SELECT id, owner_id FROM emails WHERE id = $1`, [
-    emailId,
-  ]);
-  if (!email || (email.owner_id !== user.id && user.role !== "admin")) redirect("/");
-  return email;
+/** True when this person may change the email: it's theirs, or they're an admin. */
+function canTouch(user: User) {
+  return { owner: user.id, admin: user.role === "admin" };
 }
 
 /* ---------- Signing in ---------- */
@@ -100,50 +97,68 @@ export async function createEmail(form: FormData) {
   }
 
   const id = newId();
+  // The email and all of its links are saved in a single trip to the database.
   await q(
-    `INSERT INTO emails (id, owner_id, token, recipient_email, recipient_name, label)
-     VALUES ($1,$2,$3,$4,$5,$6)`,
-    [id, user.id, randomToken(22), recipient, name || null, label || null],
+    `WITH e AS (
+       INSERT INTO emails (id, owner_id, token, recipient_email, recipient_name, label)
+       VALUES ($1,$2,$3,$4,$5,$6)
+     )
+     INSERT INTO links (email_id, position, url)
+     SELECT $1, CAST(t.ord AS integer), t.url FROM unnest($7::text[]) WITH ORDINALITY AS t(url, ord)`,
+    [id, user.id, randomToken(22), recipient, name || null, label || null, links],
   );
-  for (const [i, url] of links.entries()) {
-    await q(`INSERT INTO links (email_id, position, url) VALUES ($1,$2,$3)`, [id, i + 1, url]);
-  }
   redirect(`/emails/${id}`);
 }
 
 export async function markSent(emailId: string) {
   const user = await requireUser();
-  await emailForUser(user, emailId);
-  await q(`UPDATE emails SET sent_at = $2 WHERE id = $1 AND sent_at IS NULL`, [emailId, iso()]);
+  const who = canTouch(user);
+  const done = await one(
+    `UPDATE emails SET sent_at = COALESCE(sent_at, $2) WHERE id = $1 AND (owner_id = $3 OR $4) RETURNING id`,
+    [emailId, iso(), who.owner, who.admin],
+  );
+  if (!done) redirect("/");
   await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
 }
 
 export async function markNotSent(emailId: string) {
   const user = await requireUser();
-  await emailForUser(user, emailId);
-  await q(`UPDATE emails SET sent_at = NULL WHERE id = $1`, [emailId]);
+  const who = canTouch(user);
+  const done = await one(`UPDATE emails SET sent_at = NULL WHERE id = $1 AND (owner_id = $2 OR $3) RETURNING id`, [
+    emailId,
+    who.owner,
+    who.admin,
+  ]);
+  if (!done) redirect("/");
   await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
 }
 
 export async function deleteEmail(emailId: string) {
   const user = await requireUser();
-  await emailForUser(user, emailId);
-  await q(`DELETE FROM emails WHERE id = $1`, [emailId]);
-  redirect("/?deleted=1");
+  const who = canTouch(user);
+  const done = await one(`DELETE FROM emails WHERE id = $1 AND (owner_id = $2 OR $3) RETURNING id`, [
+    emailId,
+    who.owner,
+    who.admin,
+  ]);
+  redirect(done ? "/?deleted=1" : "/");
 }
 
 /** "That was me" — the sender says an open or click wasn't the recipient. */
 export async function ignoreEvent(emailId: string, type: "open" | "click", eventId: string) {
   const user = await requireUser();
-  await emailForUser(user, emailId);
+  const who = canTouch(user);
   const table = type === "open" ? "open_events" : "click_events";
-  await q(`UPDATE ${table} SET kind = 'ignored', reason = $3 WHERE id = $1 AND email_id = $2`, [
-    eventId,
-    emailId,
-    `Marked as not them by ${user.name}`,
-  ]);
+  const done = await one(
+    `UPDATE ${table} ev SET kind = 'ignored', reason = $3
+       FROM emails e
+      WHERE ev.id = $1 AND ev.email_id = $2 AND e.id = ev.email_id AND (e.owner_id = $4 OR $5)
+      RETURNING ev.id`,
+    [eventId, emailId, `Marked as not them by ${user.name}`, who.owner, who.admin],
+  );
+  if (!done) redirect("/");
   await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
 }

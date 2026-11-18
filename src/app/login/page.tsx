@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { login } from "@/app/actions";
 import { AuthFrame } from "@/components/AuthFrame";
+import { SubmitButton } from "@/components/SubmitButton";
 import { Notice } from "@/components/ui";
 import { getUser } from "@/lib/auth";
 
@@ -37,9 +38,9 @@ export default async function LoginPage({ searchParams }: { searchParams: SP }) 
           <label htmlFor="password">Password</label>
           <input id="password" name="password" type="password" className="input" required autoComplete="current-password" />
         </div>
-        <button type="submit" className="btn btn-primary btn-lg">
+        <SubmitButton className="btn btn-primary btn-lg" pendingText="Signing in…">
           Sign in
-        </button>
+        </SubmitButton>
       </form>
       <p className="small faint">Forgot your password? Ask your admin for a new invite link.</p>
     </AuthFrame>

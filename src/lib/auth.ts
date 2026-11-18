@@ -1,4 +1,6 @@
 import { cookies, headers } from "next/headers";
+import { after } from "next/server";
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { iso, one, q } from "./db";
 import { randomToken } from "./ids";
@@ -48,33 +50,39 @@ export async function destroySession() {
   jar.delete(SESSION_COOKIE);
 }
 
-export async function userForSessionToken(token: string | undefined): Promise<User | undefined> {
+type UserWithIp = User & { last_ip: string | null; last_ip_at: Date | string | null };
+
+export async function userForSessionToken(token: string | undefined): Promise<UserWithIp | undefined> {
   if (!token) return undefined;
-  return one<User>(
-    `SELECT u.id, u.email, u.name, u.role, u.active
+  return one<UserWithIp>(
+    `SELECT u.id, u.email, u.name, u.role, u.active, u.last_ip, u.last_ip_at
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token = $1 AND s.expires_at > $2 AND u.active`,
     [token, iso()],
   );
 }
 
-export async function getUser(): Promise<User | undefined> {
+/** Looked up once per request, even when the layout and the page both ask. */
+export const getUser = cache(async (): Promise<User | undefined> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  const user = await userForSessionToken(token);
-  if (user) {
-    // Remember the sender's internet address so their own views of an email
-    // (from the same connection) are not counted as opens.
-    const ip = clientIp(await headers());
-    if (ip) {
-      await q(
-        `UPDATE users SET last_ip = $2, last_ip_at = $3
-          WHERE id = $1 AND (last_ip IS NULL OR last_ip <> $2 OR last_ip_at IS NULL OR last_ip_at < $4)`,
-        [user.id, ip, iso(), iso(-10 * 60_000)],
-      );
-    }
+  const found = await userForSessionToken(token);
+  if (!found) return undefined;
+  const { last_ip, last_ip_at, ...user } = found;
+
+  // Remember the sender's internet address so their own views of an email
+  // (from the same connection) are not counted as opens. Done after the page
+  // is sent, and only when something actually changed.
+  const ip = clientIp(await headers());
+  const stale = !last_ip_at || new Date(last_ip_at).getTime() < Date.now() - 10 * 60_000;
+  if (ip && (last_ip !== ip || stale)) {
+    after(() =>
+      q(`UPDATE users SET last_ip = $2, last_ip_at = $3 WHERE id = $1`, [user.id, ip, iso()]).catch((err) =>
+        console.error("[tracker] could not save address", err),
+      ),
+    );
   }
   return user;
-}
+});
 
 export async function requireUser(): Promise<User> {
   const user = await getUser();

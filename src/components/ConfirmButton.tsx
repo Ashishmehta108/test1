@@ -1,14 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { useFormStatus } from "react-dom";
+import { PendingLabel } from "./SubmitButton";
+import "../app/polish.css";
 
-/** A submit button that asks once ("Click again to …") before it submits. */
-export function ConfirmButton({ label, confirmLabel, className = "" }: { label: string; confirmLabel: string; className?: string }) {
+/** A submit button that asks once ("Click again to …") before it submits, then shows a pending label while saving. */
+export function ConfirmButton({
+  label,
+  confirmLabel,
+  pendingText = "Working…",
+  className = "",
+}: {
+  label: string;
+  confirmLabel: string;
+  pendingText?: string;
+  className?: string;
+}) {
   const [armed, setArmed] = useState(false);
+  const { pending } = useFormStatus();
   return (
     <button
       type={armed ? "submit" : "button"}
       className={className}
+      disabled={pending}
+      aria-busy={pending || undefined}
       onClick={(e) => {
         if (!armed) {
           e.preventDefault();
@@ -17,7 +33,9 @@ export function ConfirmButton({ label, confirmLabel, className = "" }: { label: 
         }
       }}
     >
-      {armed ? confirmLabel : label}
+      <PendingLabel pending={pending} pendingText={pendingText}>
+        {armed ? confirmLabel : label}
+      </PendingLabel>
     </button>
   );
 }
