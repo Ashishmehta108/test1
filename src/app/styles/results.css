@@ -1,0 +1,116 @@
+/* The Results page: four headline numbers, two charts side by side, then filter tabs, search, and the list of emails.
+   Colour here always says something: sent is sky, opened green, clicked violet, waiting and maybe sun (the same as the status tags and charts). */
+
+/* ---------- Charts row: outcomes (narrower) beside the last 30 days (wider), same height ---------- */
+.results-charts { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--gap); align-items: stretch; }
+.results-charts > .chart { min-height: 100%; }
+.results-charts > .chart > .donut-box { flex: 1; display: flex; align-items: center; }
+.results-charts > .chart > .donut-box > .donut { width: 100%; }
+/* Let the 30-day bars grow to fill the card so both cards end on the same line. */
+.results-charts .trend-bars { flex: 1; height: auto; min-height: 132px; }
+/* The open rate in the middle of the ring is the card's headline number. */
+.results-charts .donut-center b { font-family: var(--font-game); font-weight: 500; font-size: 34px; letter-spacing: 0; }
+.results-charts .donut-ring circle { stroke-width: 14; }
+.results-charts .donut-list i { width: 12px; height: 12px; border-radius: 4px; }
+.results-charts .donut-list li { padding-block: 8px; }
+/* One card under the other (narrower windows): keep the ring and its list together instead of spreading the list wide. */
+@media (max-width: 1200px) {
+  .results-charts > .chart > .donut-box > .donut { width: 100%; max-width: 560px; }
+}
+
+/* ---------- The list card ---------- */
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: 0 20px; flex-wrap: wrap; padding: 0 var(--pad); border-bottom: 1px solid var(--rule); }
+/* Filter tabs: plain words, a count beside each, an underline on the current one. Each tab has the colour of its status. */
+.tabs { display: flex; gap: 24px; align-self: flex-end; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.tabs a {
+  --tk: var(--g-blue); --tkw: var(--g-blue-wash); --tki: var(--g-blue-ink);
+  display: inline-flex; align-items: center; gap: 8px; padding: 17px 1px 15px; margin-bottom: -1px;
+  font-size: var(--fs-ui); font-weight: 500; color: var(--ink-2); text-decoration: none; white-space: nowrap;
+  border-bottom: 2px solid transparent; transition: color 0.12s, border-color 0.12s;
+}
+.tabs a[data-k="opened"] { --tk: var(--g-green); --tkw: var(--g-green-wash); --tki: var(--g-green-ink); }
+.tabs a[data-k="maybe"] { --tk: var(--g-sun); --tkw: var(--g-sun-wash); --tki: var(--g-sun-ink); }
+.tabs a[data-k="waiting"], .tabs a[data-k="draft"] { --tk: var(--ink-3); --tkw: var(--grey-wash); --tki: var(--ink); }
+.tabs a:hover { color: var(--ink); border-bottom-color: var(--rule-strong); }
+.tabs a:focus-visible { outline-offset: -2px; }
+.tabs a[aria-current="true"] { color: var(--ink); border-bottom-color: var(--tk); }
+.tabs .count {
+  min-width: 24px; padding: 3px 7px; border-radius: 999px; text-align: center; line-height: 1;
+  font-size: var(--fs-micro); font-weight: 500; font-variant-numeric: tabular-nums; background: var(--grey-wash); color: var(--ink-2);
+}
+.tabs a[aria-current="true"] .count { background: var(--tkw); color: var(--tki); }
+.tabs a[data-k="draft"][aria-current="true"] .count { background: transparent; border: 1px dashed var(--rule-hover); padding: 2px 6px; }
+
+.search { position: relative; margin: 10px 0; }
+.search .input { height: 38px; padding: 8px 12px 8px 36px; font-size: var(--fs-ui); width: 260px; }
+.search .input::-webkit-search-cancel-button { cursor: pointer; }
+.search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--ink-3); pointer-events: none; }
+
+/* ---------- The table: fixed columns so long names never push the layout around ---------- */
+.results-table { table-layout: fixed; }
+.results-table th.c-who { width: 20%; }
+.results-table th.c-status { width: 166px; }
+.results-table th.c-when { width: 132px; }
+.results-table th.c-n { width: 64px; }
+.results-table th.c-pts { width: 78px; }
+/* A time is "Yesterday, 16:35", a count is a mark and a number: a little less padding so they never run into the next column. */
+.results-table td.c-when, .results-table td.c-first, .results-table th.c-when { padding-inline: 8px; }
+.results-table td.c-when, .results-table td.c-first { font-size: var(--fs-ui); }
+.results-table td.r, .results-table th.c-n { padding-inline: 6px; }
+.results-table td.r:last-child, .results-table th.c-pts { padding-right: var(--pad); }
+.results-table th { background: var(--paper-2); }
+.results-table td { padding-block: 12px; }
+.results-table tbody tr { position: relative; }
+.results-table tbody tr:hover { cursor: pointer; }
+/* The whole row opens the email: the link in the first cell stretches over it. */
+.results-table .row-link::after { content: ""; position: absolute; inset: 0; }
+.results-table .row-link:focus-visible { outline: none; }
+.results-table .row-link:focus-visible::after { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 2px; }
+.results-table .who b, .results-table .who span, .results-table .about {
+  display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.results-table .who { min-height: 44px; justify-content: center; gap: 1px; }
+.results-table .who b { font-size: var(--fs-body); color: var(--ink); }
+.results-table .who span { font-size: var(--fs-small); color: var(--ink-2); }
+.results-table tbody tr:hover .who b { text-decoration: underline; text-decoration-color: var(--rule-hover); text-underline-offset: 3px; }
+.results-table .about { color: var(--ink-2); font-size: var(--fs-ui); }
+.results-table .who .about-sm { display: none; }
+/* Times and counts sit above the stretched link so their own hover note still works. */
+.results-table time { position: relative; z-index: 1; }
+/* Opens and clicks: a small mark in the status colour, then the number. Zero is a quiet 0. */
+.rs-count { display: inline-flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--ink); }
+.rs-count svg { flex: none; display: block; }
+.rs-count-opens svg { color: var(--g-green); }
+.rs-count-clicks svg { color: var(--g-violet); }
+
+/* The list card measures itself: when it is narrow (menu open, smaller window) the "First opened" column steps aside. */
+.results-list { container-type: inline-size; }
+@container (max-width: 1000px) {
+  .results-table .c-first { display: none; }
+}
+
+.results-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 4px 16px; flex-wrap: wrap; padding: 14px var(--pad); border-top: 1px solid var(--rule); font-size: var(--fs-small); color: var(--ink-3); }
+.results-foot .num { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1200px) {
+  .results-charts { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 960px) {
+  .search .input { width: 100%; }
+  .search { flex: 1 1 100%; margin: 0 0 12px; }
+  .tabs { gap: 20px; flex: 1 1 100%; margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad); }
+  .results-table th.c-who { width: auto; }
+  .results-table th.c-status { width: 148px; }
+  .results-table td:has(> .tag) { padding-left: 4px; }
+  .results-table .tag { font-size: var(--fs-small); gap: 6px; padding: 5px 8px; }
+  .results-table .tag.t-draft { padding: 4px 7px; }
+  /* The top bar already has "Track an email" on a phone. */
+  .results-track { display: none; }
+  .results-table .c-first { display: none; }
+  /* On a phone: name, then what it was about, then the status on the right. */
+  .results-table .who span:not(.about-sm) { display: none; }
+  .results-table .who .about-sm { display: block; color: var(--ink-2); }
+  .results-table th:not(.c-who) { text-align: right; }
+  .results-table td:has(> .tag) { text-align: right; }
+}

@@ -1,0 +1,32 @@
+/* The Insights page. Time-based charts run full width; the rest sit two to a row with equal heights. */
+.ins-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; }
+.ins-grid > .chart { min-width: 0; }
+
+/* The funnel: bars at the top, the "of those opened" line pinned to the bottom of the card. */
+.ins-funnel { display: flex; flex-direction: column; justify-content: space-between; gap: 20px; flex: 1; }
+
+/* The whole team (admins only): a plain section heading, then its cards. */
+.ins-team { display: flex; flex-direction: column; gap: var(--gap); }
+.ins-section-head { margin-top: 8px; }
+.ins-section-title { font-family: var(--font-game); font-size: 22px; font-weight: 500; letter-spacing: 0; }
+
+/* How each person is doing: name, one bar split by outcome, sent, open rate. */
+.who-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.who-row { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr) 72px 92px; gap: 16px; align-items: center; padding: 10px 0; border-top: 1px solid var(--rule); font-size: var(--fs-ui); }
+.who-row:first-child { border-top: 0; padding-top: 0; }
+.who-name { display: inline-flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; color: var(--ink); border-radius: var(--radius-sm); }
+.who-name > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who-name .avatar { width: 30px; height: 30px; font-size: 12px; flex-shrink: 0; }
+.who-name:hover > span:last-child { text-decoration: underline; text-decoration-color: var(--rule-hover); }
+.who-name:focus-visible { outline-offset: 3px; }
+.who-n { text-align: right; color: var(--ink-2); font-size: var(--fs-small); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.who-n b { color: var(--ink); font-family: var(--font-game); font-weight: 500; font-size: var(--fs-body); }
+
+@media (max-width: 960px) {
+  .ins-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  /* Name and numbers on one line, the bar full width under them. */
+  .who-row { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 14px; }
+  .who-row .stackbar, .who-row .stackbar-empty { grid-column: 1 / -1; grid-row: 2; }
+}

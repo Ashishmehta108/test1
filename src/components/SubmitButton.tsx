@@ -2,7 +2,6 @@
 
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { useFormStatus } from "react-dom";
-import "../app/polish.css";
 
 /**
  * Shows the label on the button, or a spinner plus `pendingText` while its form is saving.

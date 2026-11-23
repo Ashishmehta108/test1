@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { login } from "@/app/actions";
-import { AuthFrame } from "@/components/AuthFrame";
+import { AuthFrame, AuthHead } from "@/components/AuthFrame";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Notice } from "@/components/ui";
 import { getUser } from "@/lib/auth";
@@ -13,13 +13,12 @@ export default async function LoginPage({ searchParams }: { searchParams: SP }) 
   if (await getUser()) redirect("/");
   const sp = await searchParams;
 
+  const wrong = sp.error === "wrong";
+
   return (
-    <AuthFrame>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <h1>Sign in</h1>
-        <p className="muted">Use the email and password your admin set up for you.</p>
-      </div>
-      {sp.error === "wrong" && <Notice kind="error">That email and password don&apos;t match. Check them and try again.</Notice>}
+    <AuthFrame about foot="Forgot your password? Ask your admin for a new invite link.">
+      <AuthHead title="Sign in">Use the email and password your admin set up for you.</AuthHead>
+      {wrong && <Notice kind="error">That email and password don&apos;t match. Check them and try again.</Notice>}
       <form action={login} className="form">
         <div className="field">
           <label htmlFor="email">Email</label>
@@ -29,20 +28,29 @@ export default async function LoginPage({ searchParams }: { searchParams: SP }) 
             type="email"
             className="input"
             required
-            autoFocus
+            autoFocus={!wrong}
             autoComplete="email"
+            aria-invalid={wrong || undefined}
             defaultValue={typeof sp.email === "string" ? sp.email : ""}
           />
         </div>
         <div className="field">
           <label htmlFor="password">Password</label>
-          <input id="password" name="password" type="password" className="input" required autoComplete="current-password" />
+          <input
+            id="password"
+            name="password"
+            type="password"
+            className="input"
+            required
+            autoFocus={wrong}
+            autoComplete="current-password"
+            aria-invalid={wrong || undefined}
+          />
         </div>
         <SubmitButton className="btn btn-primary btn-lg" pendingText="Signing in…">
           Sign in
         </SubmitButton>
       </form>
-      <p className="small faint">Forgot your password? Ask your admin for a new invite link.</p>
     </AuthFrame>
   );
 }

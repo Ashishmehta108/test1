@@ -1,11 +1,11 @@
+import { AuthFrame, AuthHead } from "@/components/AuthFrame";
+
 export default function ShareNotFound() {
   return (
-    <main className="main" style={{ maxWidth: 720 }}>
-      <div className="card empty">
-        <div className="illus" aria-hidden="true" />
-        <h2>This link isn&apos;t available any more.</h2>
-        <p>The sender may have turned it off or made a new one.</p>
-      </div>
-    </main>
+    <AuthFrame>
+      <AuthHead title={"This link isn't available any more"}>
+        The person who sent it may have turned it off or made a new one. Ask them for the latest link.
+      </AuthHead>
+    </AuthFrame>
   );
 }

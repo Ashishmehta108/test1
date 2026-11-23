@@ -1,4 +1,4 @@
-import type { Status } from "./track";
+import type { Status } from "@/db/schema";
 
 export const STATUS_LABEL: Record<Status, string> = {
   draft: "Not sent yet",

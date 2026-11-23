@@ -1,0 +1,85 @@
+/* The Team page: the numbers at the top, the list of people, the add form and the invite link.
+   The list and the form size themselves to the room they have (container queries), not to the
+   screen, so they also behave when the menu on the left is open or closed. */
+
+/* ---------- Numbers at the top ---------- */
+@media (max-width: 960px) {
+  /* Three numbers in two columns: let the last one take the whole bottom row. */
+  .team-stats .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* ---------- People list and form ---------- */
+.team-area { container: team / inline-size; }
+.team-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-items: start; }
+@container team (min-width: 1010px) {
+  .team-grid { grid-template-columns: minmax(0, 1fr) 340px; }
+}
+
+.members { container: members / inline-size; }
+.member-list { list-style: none; margin: 0; padding: 0; }
+.member {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px 14px; align-items: center;
+  padding: 16px var(--pad); border-bottom: 1px solid var(--rule);
+}
+.member:last-child { border-bottom: 0; }
+.member .avatar { width: 42px; height: 42px; font-size: 15px; }
+/* Not joined yet: the same colour, drawn dashed (the app's "not yet" look). Paused: the colour is switched off. */
+.member-pending .avatar:not(.avatar-admin) { background: transparent; border: 1.5px dashed color-mix(in oklab, var(--av, var(--ink-3)) 70%, transparent); }
+.member-paused .avatar { filter: grayscale(1); opacity: 0.6; }
+.member-paused .member-title { color: var(--ink-2); }
+
+.member-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.member .pill { font-size: 12px; padding: 3px 9px; }
+.member-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; line-height: 1.4; }
+.member-title { font-size: var(--fs-body); font-weight: 500; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member-you { font-size: var(--fs-small); color: var(--ink-3); }
+.member-email { font-size: var(--fs-small); color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The level prize, small, then its number in words. */
+.member .member-level { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--ink-2); white-space: nowrap; }
+.member-stats { display: flex; align-items: center; gap: 12px; margin-top: 8px; font-size: var(--fs-small); color: var(--ink-2); min-width: 0; }
+.member-stats .num { white-space: nowrap; }
+.member-bar { flex: 0 1 200px; min-width: 72px; }
+
+/* Buttons sit in three fixed slots so they line up from row to row:
+   the main button, pause (or turn back on), delete. */
+.member-actions { display: grid; grid-template-columns: 124px 104px 64px; gap: 4px; align-items: center; }
+.member-actions .act-main { grid-column: 1; }
+.member-actions .act-second { grid-column: 2; }
+.member-actions .act-delete { grid-column: 3; }
+.member-actions form { display: flex; justify-content: center; margin: 0; }
+.member-actions form .btn:not(.btn-quiet) { flex: 1; }
+/* A button keeps room for its "Pausing…" label even when idle. Here it only takes the room of what it says now,
+   so the slots stay narrow (it grows for a moment once it is clicked). */
+.member-actions .sbtn-stack > span:last-child.sbtn-hidden { display: none; }
+/* While a button is asking "are you sure?" its longer label gets its own line, right-aligned. */
+.member-actions .confirm:has(> button[type="submit"]) { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
+
+@container members (max-width: 639px) {
+  .member { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .member-actions { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; }
+  .member-actions form { display: block; }
+  .member-actions .btn-quiet { padding: 0 8px; }
+  .member-bar { flex-basis: 160px; }
+}
+
+/* ---------- Add someone ---------- */
+.invite-card { container: invite / inline-size; }
+.invite-card .invite-form { padding: var(--pad); }
+@container invite (min-width: 600px) {
+  /* Wide (the form sits under the list): name, email and button on one line. */
+  .invite-card .invite-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 16px; }
+  .invite-card .invite-lead { grid-column: 1 / -1; }
+  .invite-card .invite-form .btn-primary { height: 43px; }
+}
+
+/* ---------- The invite link, after adding someone ----------
+ */
+.notice.invite-notice {
+  display: block; padding: 18px var(--pad); color: var(--ink-2);
+}
+.invite-body { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.invite-notice .card-title { color: var(--ink); }
+.invite-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-top: -8px; }
+.invite-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.invite-link .code-line { flex: 1 1 280px; min-width: 0; background: var(--card); border: 1px solid color-mix(in oklab, var(--g-teal) 38%, var(--rule-strong)); }
+.invite-link .btn { flex-shrink: 0; min-width: 136px; }

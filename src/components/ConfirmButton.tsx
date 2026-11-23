@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { PendingLabel } from "./SubmitButton";
-import "../app/polish.css";
 
 /** A submit button that asks once ("Click again to …") before it submits, then shows a pending label while saving. */
 export function ConfirmButton({
@@ -25,6 +24,7 @@ export function ConfirmButton({
       className={className}
       disabled={pending}
       aria-busy={pending || undefined}
+      data-armed={armed && !pending ? "" : undefined}
       onClick={(e) => {
         if (!armed) {
           e.preventDefault();

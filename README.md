@@ -69,9 +69,14 @@ The admin account is created automatically the first time the app starts with an
 
 ## For developers
 
-- Next.js 15 (App Router, server actions), no ORM. All SQL is in `src/lib`.
-- Database: `@neondatabase/serverless` when `DATABASE_URL` is set; otherwise [PGlite](https://pglite.dev) stored in `./.data`. The schema is created on startup (`src/lib/db.ts`).
-- `GET /o/<token>.gif` returns the pixel and records the open afterwards with `after()`.
+- Next.js 15 (App Router, server actions) with [Drizzle ORM](https://orm.drizzle.team). The tables, indexes and types are in `src/db/schema.ts`.
+- Database: a normal Postgres server (Aiven, Supabase, RDS, ...) for any `DATABASE_URL`, `@neondatabase/serverless` for neon.tech, or [PGlite](https://pglite.dev) stored in `./.data` when `DATABASE_URL` is empty.
+- Changing the database: edit `src/db/schema.ts`, run `npm run db:generate`, and read the new file in `drizzle/`. The app applies pending files by itself the first time it starts (`src/db/index.ts`), so a running app costs one quick check per start. Write migrations so they are safe to run twice.
+- A database made before Drizzle was added is recognised and adopted as it is: the first migration (`0000_baseline`) describes it and is skipped, then the later ones run.
+- `GET /o/<token>.gif` returns the pixel and records the open afterwards with `after()`. An open is saved and the email's totals are updated in one database call.
 - `GET /c/<token>/<n>` records a click and redirects (302) only to a URL saved for that email.
-- Classification rules are in `src/lib/track.ts`. An email's status and counts are always rebuilt from its raw events (`recompute`).
+- Classification rules are in `src/lib/track.ts`. Totals are added to as opens arrive, and rebuilt from the raw events after a correction (`recompute`).
 - Every page checks access on the server: users only see their own rows, and admins can view anyone.
+- Backing up a live database: use `pg_dump` from the same major version as the server (for example `docker run postgres:18-alpine pg_dump ...`). Keep the file out of git; `.data` is already ignored.
+- Putting saved data into a new database: first start the app once with `ADMIN_EMAIL` and `ADMIN_PASSWORD` empty (it only builds the tables), stop it, load the data file with `psql`, then start it normally. Loading it into a database where the first admin was already created will clash on that admin's email.
+- Times are stored as exact moments (`timestamptz`, which Postgres keeps in UTC) and the server never converts them. They are turned into local time only in the browser (`src/lib/when.ts`, using date-fns), so everyone sees their own timezone, including people who open a shared link.

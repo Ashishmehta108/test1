@@ -1,0 +1,86 @@
+/* Pop-up forms ("Track an email") and the notes box inside them. */
+dialog.modal {
+  width: min(94vw, 640px); max-width: none; max-height: 94dvh; padding: 0; overflow: hidden;
+  background: var(--card); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: 20px;
+  box-shadow: var(--pop-shadow);
+}
+dialog.modal-full { width: min(96vw, 960px); }
+dialog.modal::backdrop { background: rgba(15, 16, 18, 0.4); }
+.modal-form { display: flex; flex-direction: column; max-height: 94dvh; }
+
+/* Top: a drawing in the form's colour, the title and one line saying what the form does. */
+.modal-head {
+  display: flex; align-items: center; gap: 14px; padding: 18px var(--pad) 16px;
+  border-bottom: 1px solid var(--rule);
+}
+.modal-titles { flex: 1; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.modal-titles h2 { font-family: var(--font-game); font-size: 22px; font-weight: 500; letter-spacing: 0; line-height: 1.15; }
+.modal-desc { font-size: var(--fs-ui); color: var(--ink-2); line-height: 1.4; }
+.modal-x { width: 32px; height: 32px; padding: 0; flex-shrink: 0; margin: 0 -8px 0 0; align-self: flex-start; border-radius: 10px; }
+
+/* Middle scrolls on its own; top and bottom stay in view. */
+.modal-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--pad); }
+
+/* Bottom: a quiet note (or the problem) on the left, the buttons on the right. */
+.modal-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; padding: 12px var(--pad); border-top: 1px solid var(--rule); background: var(--card); }
+.modal-note, .modal-error { margin-right: auto; min-width: 0; font-size: var(--fs-small); color: var(--ink-3); overflow-wrap: anywhere; }
+.modal-error { color: var(--red-ink); font-weight: 500; }
+
+.form-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--gap); }
+.form-main, .form-side { display: flex; flex-direction: column; gap: var(--gap-page); min-width: 0; }
+.form-side { border-left: 1px solid var(--rule); padding-left: var(--pad); }
+.form-section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.form-section > header { display: flex; flex-direction: column; gap: 3px; }
+.form-section > header h3 { font-size: var(--fs-body); }
+.form-row { display: grid; gap: 16px 14px; }
+.form-row-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.form-row-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.form-read { font-size: var(--fs-body); overflow-wrap: anywhere; }
+/* Tracked links: one per line, at most two lines each (the full link is in the tooltip). */
+.form-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; font-size: var(--fs-ui); }
+.form-links li { padding: 8px 0; border-bottom: 1px solid var(--rule); }
+.form-links span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+.form-links li:first-child { padding-top: 0; }
+.form-links li:last-child { padding-bottom: 0; border-bottom: 0; }
+
+/* Markdown text box (Write / Preview). The tabs are the shared .segmented switch, a size smaller. */
+.md-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.segmented.md-tabs { flex-shrink: 0; }
+.segmented.md-tabs button { font-size: var(--fs-small); padding: 4px 12px; }
+.segmented.md-tabs button:focus-visible { outline-offset: 1px; }
+textarea.md-input { min-height: 0; line-height: 1.5; resize: vertical; }
+/* Formatting buttons sit on the text box's top edge, joined to it. */
+.md-write { display: flex; flex-direction: column; }
+.md-tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 4px;
+  border: 1px solid var(--rule-strong); border-bottom: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: var(--paper-2);
+}
+.md-tool-group { display: flex; gap: 2px; }
+.md-tool-group + .md-tool-group { padding-left: 5px; margin-left: 3px; border-left: 1px solid var(--rule-strong); }
+.md-tool {
+  width: 32px; height: 30px; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 5px; background: transparent; color: var(--ink-2); cursor: pointer;
+}
+.md-tool:hover { background: var(--hover); color: var(--ink); }
+.md-tool:active { background: var(--rule-strong); }
+.md-tool:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.md-write textarea.md-input { border-top-left-radius: 0; border-top-right-radius: 0; }
+/* Same height as the text box, so switching tabs does not make the form jump. */
+.md-preview { min-height: calc(var(--rows, 10) * 22.5px + 20px); border: 1px solid var(--rule-strong); border-radius: var(--radius-sm); padding: 9px 12px; background: var(--paper-2); }
+
+@media (max-width: 960px) {
+  /* Full screen on a phone: title on top, buttons at the bottom, the form scrolls between. */
+  dialog.modal { width: 100vw; max-height: 100dvh; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; }
+  .modal-form { max-height: 100dvh; height: 100%; }
+  .modal-x { width: 40px; height: 40px; margin: -6px -10px 0 0; }
+  .modal-head { gap: 12px; }
+  .modal-titles h2 { font-size: 20px; }
+  .form-cols { grid-template-columns: 1fr; }
+  .form-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); padding-top: var(--gap-page); }
+  .form-row-2, .form-row-3 { grid-template-columns: 1fr; }
+  .segmented.md-tabs button { padding: 8px 14px; }
+  .modal-foot { gap: 8px; padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .modal-note, .modal-error { flex: 1 0 100%; margin-right: 0; }
+  .modal-foot .btn { flex: 1 1 0; height: 42px; }
+  .modal-foot .btn-primary { flex-grow: 2; }
+}

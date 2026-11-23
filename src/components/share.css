@@ -1,15 +1,20 @@
-/* Share card on the results page. Uses the colours and buttons from globals.css. */
-.share-card { padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; }
-.share-text { color: var(--ink-2); font-size: 14px; max-width: 46ch; }
+/* Share card on one email's page. Uses the colours and buttons from globals.css. */
+.share-card { padding: 16px var(--pad) 18px; display: flex; flex-direction: column; gap: 12px; }
+.share-text { color: var(--ink-2); font-size: var(--fs-small); max-width: 46ch; }
+/* "Link is on": green, the same soft pill as an opened email. */
+.share-on { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border-radius: 999px; font-size: var(--fs-small); font-weight: 500; line-height: 1.2; color: var(--g-green-ink); background: var(--g-green-wash); }
+.share-on::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--g-green); }
 .share-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .share-input {
-  flex: 1 1 180px; min-width: 0; height: 34px; padding: 6px 10px;
-  font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums;
+  flex: 1 1 160px; min-width: 0; height: 36px; padding: 6px 10px;
+  font-size: var(--fs-small); color: var(--ink-2); font-variant-numeric: tabular-nums;
   text-overflow: ellipsis;
 }
-.share-note { font-size: 13px; color: var(--ink-3); }
-.share-note-bad { color: var(--red); }
+.share-note { font-size: var(--fs-small); color: var(--ink-3); }
+.share-note-bad { color: var(--red-ink); }
 .share-quiet {
   display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
   padding-top: 12px; border-top: 1px solid var(--rule);
 }
+.share-quiet .btn-quiet:first-child { margin-left: -10px; }
+.share-quiet .sbtn-stack { justify-items: start; }

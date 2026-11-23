@@ -1,0 +1,181 @@
+/* The app shell: the menu down the left, the page on the right.
+   Each page in the menu has a small line drawing; the page you are on is marked in the app's blue.
+   Closed, the menu folds to a narrow strip (the mark, the open button, the page drawings, your initials).
+   Below 960px it becomes a compact top bar. */
+.shell { --side-w: 248px; display: grid; grid-template-columns: var(--side-w) minmax(0, 1fr); min-height: 100vh; }
+.shell[data-side="closed"] { --side-w: 68px; }
+
+.side {
+  position: sticky; top: 0; height: 100vh; z-index: 10; min-width: 0;
+  display: flex; flex-direction: column;
+  padding: 18px 12px 14px; background: var(--card); border-right: 1px solid var(--rule);
+}
+
+/* Brand and the fold button share the top line. */
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding-left: 8px; }
+.brand { display: flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; white-space: nowrap; font-family: var(--font-game); font-weight: 500; font-size: 19px; letter-spacing: 0; line-height: 1; color: var(--ink); border-radius: var(--radius-sm); }
+.brand-name { overflow: hidden; text-overflow: ellipsis; padding-bottom: 1px; }
+.brand-mark { width: 30px; height: 30px; flex-shrink: 0; display: block; }
+.bm-tile { fill: var(--g-blue); }
+.bm-line { fill: none; stroke: light-dark(var(--on-accent), var(--paper)); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.bm-dot { fill: var(--g-green); stroke: var(--g-blue); stroke-width: 1.5; }
+.side-toggle.btn { width: 32px; height: 32px; padding: 0; flex-shrink: 0; color: var(--ink-3); border-radius: 10px; }
+.side-toggle.btn:hover { color: var(--ink); }
+.side-toggle[data-tip]::after { top: 50%; bottom: auto; left: calc(100% + 8px); transform: translateY(-50%); }
+
+/* Pages, as words with a drawing. The current page: a blue wash and blue ink. */
+.nav { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin-top: 24px; }
+.nav a {
+  display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 10px 0 7px;
+  text-decoration: none; color: var(--ink-2); font-size: var(--fs-ui); font-weight: 500;
+  border-radius: 13px; white-space: nowrap;
+  transition: background-color 0.12s, color 0.12s;
+}
+.nav a:hover { color: var(--ink); background: var(--hover); }
+.nav-ic { width: 30px; height: 30px; flex: none; display: grid; place-items: center; color: var(--ink-3); }
+.nav-ic svg { display: block; width: 20px; height: 20px; }
+.nav a:hover .nav-ic { color: var(--ink-2); }
+.nav a[aria-current="page"] { color: var(--blue-ink); background: var(--blue-wash); }
+.nav a[aria-current="page"] .nav-ic { color: var(--blue); }
+.nav a:focus-visible { outline-offset: -2px; border-radius: 13px; }
+.nav-label { overflow: hidden; text-overflow: ellipsis; }
+/* The page name is a hover note only when the menu is folded (the words are hidden then). */
+.nav a[data-tip]::after { display: none; }
+
+/* The main action, under the pages. */
+.side-track.btn { margin-top: 16px; width: 100%; height: 42px; gap: 9px; border-radius: 12px; }
+.side-track svg { width: 18px; height: 18px; flex: none; }
+
+/* Your name at the bottom: click for your level, appearance and signing out. */
+.side-foot { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--rule); }
+.user-menu { position: relative; }
+.user-menu summary {
+  list-style: none; display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 12px;
+  cursor: pointer; color: var(--ink); transition: background-color 0.12s;
+}
+.user-menu summary::-webkit-details-marker { display: none; }
+.user-menu summary:hover, .user-menu[open] summary { background: var(--hover); }
+.user-menu summary:focus-visible { outline-offset: -2px; border-radius: 12px; }
+.user-menu .avatar { width: 32px; height: 32px; font-size: var(--fs-micro); }
+.who-me { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.who-me .name { font-size: var(--fs-ui); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Your level under your name: the prize you hold, then a short line. A thin bar in the prize's colour runs to the next level. */
+.who-me .lvl { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: var(--fs-micro); color: var(--ink-2); }
+.who-me .lvl .lv-prize { margin-left: -1px; }
+.who-me .lvl-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who-me .side-lvl-bar { height: 4px; margin-top: 5px; max-width: 150px; background: var(--lv-wash); }
+.who-me .side-lvl-bar > span { background: var(--lv-hue); }
+.user-menu .me-prize { display: none; }
+.user-menu summary { position: relative; }
+.user-menu .chev { position: absolute; top: 8px; right: 8px; color: var(--ink-3); flex-shrink: 0; transition: transform 0.15s; }
+.who-me .name { padding-right: 18px; }
+.user-menu[open] .chev { transform: rotate(180deg); }
+
+.user-pop {
+  position: absolute; z-index: 40; bottom: calc(100% + 8px); left: -6px; right: -6px;
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  background: var(--card); border: 1px solid var(--rule-strong); border-radius: 16px; box-shadow: var(--pop-shadow);
+}
+.user-pop hr { border: 0; border-top: 1px solid var(--rule); margin: 2px -10px; }
+.pop-who { display: flex; flex-direction: column; min-width: 0; line-height: 1.35; padding: 2px 6px 0; }
+.pop-who b { font-size: var(--fs-ui); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-who span { font-size: var(--fs-small); color: var(--ink-3); overflow-wrap: anywhere; }
+/* Your level in the pop-up: your prize, its name, how far to the next one. The whole block opens your profile. */
+.pop-game {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 13px; text-decoration: none; color: var(--ink);
+  background: color-mix(in oklab, var(--lv-wash) 72%, var(--card));
+  border: 1px solid color-mix(in oklab, var(--lv-hue) 30%, var(--card));
+  transition: background-color 0.12s;
+}
+.pop-game:hover { background: var(--lv-wash); }
+.pop-game:focus-visible { outline-offset: 2px; border-radius: 13px; }
+.pop-game { gap: 8px; }
+.pop-game-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pop-game-top b { font-family: var(--font-game); font-size: 16px; font-weight: 500; letter-spacing: 0; color: var(--lv-ink); line-height: 1.2; overflow-wrap: anywhere; }
+.pop-game-sub { font-size: var(--fs-small); color: var(--ink-2); line-height: 1.3; margin-top: -2px; }
+.pop-line { display: flex; align-items: center; gap: 6px; min-width: 0; margin-top: 2px; }
+.pop-line .lv-track { height: 5px; border-radius: 3px; background: color-mix(in oklab, var(--lv-hue) 22%, var(--card)); }
+.pop-line .lv-fill { border-radius: 3px; }
+.pop-game-link { font-size: var(--fs-small); font-weight: 500; color: var(--lv-ink); padding-top: 8px; border-top: 1px solid color-mix(in oklab, var(--lv-hue) 22%, transparent); margin-top: 2px; text-wrap: balance; }
+.pop-game:hover .pop-game-link { text-decoration: underline; text-underline-offset: 3px; }
+.pop-label { font-size: var(--fs-micro); font-weight: 500; color: var(--ink-3); padding: 2px 6px 0; }
+.theme-toggle { align-self: stretch; display: flex; flex-wrap: nowrap; }
+.theme-toggle button { flex: 1; padding: 6px 4px; font-size: var(--fs-small); }
+.theme-toggle button:focus-visible { outline-offset: 0; }
+.pop-item {
+  display: flex; align-items: center; width: 100%; height: 36px; padding: 0 8px; text-align: left;
+  background: transparent; border: 0; border-radius: 10px; cursor: pointer;
+  font: inherit; font-size: var(--fs-ui); font-weight: 500; color: var(--ink);
+}
+.pop-item:hover { background: var(--hover); }
+.pop-item:focus-visible { outline-offset: -2px; }
+
+/* ---------- Folded: a narrow strip ---------- */
+.shell[data-side="closed"] .side { padding-inline: 12px; align-items: center; }
+.shell[data-side="closed"] .side-top { flex-direction: column; gap: 14px; padding-left: 0; }
+.shell[data-side="closed"] .brand-name,
+.shell[data-side="closed"] .who-me,
+.shell[data-side="closed"] .user-menu .chev { display: none; }
+.shell[data-side="closed"] .side-foot { width: 100%; display: flex; justify-content: center; }
+.shell[data-side="closed"] .user-menu summary { padding: 4px; }
+.shell[data-side="closed"] .user-pop { left: 0; right: auto; width: 252px; }
+@media (min-width: 961px) {
+  /* The page drawings stay: just the tiles, with the page name as a hover note. */
+  .shell[data-side="closed"] .nav { align-items: center; margin-top: 22px; }
+  .shell[data-side="closed"] .nav a { width: 44px; padding: 0; justify-content: center; }
+  .shell[data-side="closed"] .nav-label,
+  .shell[data-side="closed"] .side-track-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .shell[data-side="closed"] .nav a[data-tip]:hover::after,
+  .shell[data-side="closed"] .nav a[data-tip]:focus-visible::after { display: block; top: 50%; bottom: auto; left: calc(100% + 10px); transform: translateY(-50%); }
+  /* The main action stays too, as its drawing. */
+  .shell[data-side="closed"] .side-track.btn { width: 44px; padding: 0; margin-top: 14px; }
+}
+
+/* ---------- Phones and small tablets: a compact top bar ---------- */
+@media (max-width: 960px) {
+  .shell, .shell[data-side="closed"] { display: block; }
+  /* Hidden tooltips near the right edge still take up room; never let them make the page scroll sideways. */
+  .main { overflow-x: clip; }
+  .side, .shell[data-side="closed"] .side {
+    position: sticky; top: 0; height: auto;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "top track foot" "nav nav nav";
+    align-items: center; gap: 6px 8px; padding: 8px 16px 6px; border-right: 0; border-bottom: 1px solid var(--rule);
+  }
+  .side-top, .shell[data-side="closed"] .side-top { grid-area: top; flex-direction: row; padding-left: 0; min-height: 0; }
+  .brand-mark { width: 27px; height: 27px; }
+  .brand { font-size: 17px; gap: 8px; }
+  .side-toggle.btn { display: none; }
+  .shell[data-side="closed"] .brand-name { display: inline; }
+  .nav, .shell[data-side="closed"] .nav {
+    grid-area: nav; display: flex; flex-direction: row; align-items: center; gap: 3px; margin: 0 -4px; min-width: 0;
+    overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a, .shell[data-side="closed"] .nav a { height: 38px; padding: 0 12px 0 5px; gap: 8px; font-size: 14px; flex-shrink: 0; width: auto; justify-content: flex-start; }
+  .nav a .nav-ic { width: 28px; height: 28px; }
+  .side-track.btn, .shell[data-side="closed"] .side-track { grid-area: track; display: inline-flex; width: auto; margin: 0; height: 36px; padding: 0 12px 0 11px; font-size: var(--fs-small); }
+  .shell[data-side="closed"] .side-track-label { position: static; width: auto; height: auto; margin: 0; clip-path: none; }
+  .side-foot, .shell[data-side="closed"] .side-foot { grid-area: foot; margin: 0; padding: 0; border: 0; width: auto; }
+  .user-menu summary, .shell[data-side="closed"] .user-menu summary { padding: 3px; gap: 6px; }
+  .user-menu .who-me { display: none; }
+  /* Your prize sits on the corner of your initials, like a badge. */
+  .user-menu summary, .shell[data-side="closed"] .user-menu summary { gap: 12px; padding-right: 2px; }
+  .user-menu .me-prize { display: grid; place-items: center; position: absolute; left: 27px; top: 25px; width: 22px; height: 22px; border-radius: 50%; background: var(--card); }
+  .user-menu .chev, .shell[data-side="closed"] .user-menu .chev { display: block; position: static; transform: rotate(180deg); }
+  .user-menu[open] .chev { transform: none; }
+  .user-pop, .shell[data-side="closed"] .user-pop { bottom: auto; top: calc(100% + 8px); left: auto; right: 0; width: min(280px, calc(100vw - 32px)); }
+}
+
+/* A phone: the page you are on keeps its name; the others are just their drawings (the name stays for screen readers). */
+@media (max-width: 720px) {
+  .nav a:not([aria-current="page"]) { padding: 0 5px; }
+  .nav a:not([aria-current="page"]) .nav-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+@media (max-width: 480px) {
+  /* Narrow phones: the main action keeps its words and gives up its drawing to make room. */
+  .side-track.btn { padding: 0 12px; }
+  .side-track svg { display: none; }
+}
+@media (max-width: 380px) {
+  .brand-name, .shell[data-side="closed"] .brand-name { display: none; }
+}

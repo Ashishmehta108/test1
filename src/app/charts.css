@@ -1,0 +1,154 @@
+/* Charts. One look for every chart in the app.
+   Marks (bars, slices, lines) wear --m-* or --series-* colours; words and numbers stay in ink.
+   Bars are thin with a rounded end, touching marks are separated by a 2px gap, grid lines are hairlines. */
+
+/* ---------- The card a chart sits in ---------- */
+.chart { padding: 18px var(--pad) 20px; display: flex; flex-direction: column; gap: 16px; }
+.chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; }
+.chart-head > div:first-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chart-note { font-size: var(--fs-small); color: var(--ink-2); }
+.chart-aside { font-size: var(--fs-small); color: var(--ink-2); }
+/* Nothing to draw yet: one plain line where the chart would be. */
+.chart-empty { margin: 0; padding: 28px 0 20px; text-align: center; font-size: var(--fs-ui); color: var(--ink-2); text-wrap: balance; }
+.chart-foot { font-size: var(--fs-small); color: var(--ink-2); }
+.chart-foot b { color: var(--ink); font-weight: 500; }
+
+/* ---------- Legend: a dot, a name, sometimes a number ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: var(--fs-small); color: var(--ink-2); }
+.legend > span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.legend i { width: 11px; height: 11px; border-radius: 4px; flex-shrink: 0; background: var(--c, var(--m-waiting)); }
+.legend b { color: var(--ink); font-family: var(--font-game); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* The line under a chart: first day on the left, "Today" on the right. */
+.chart-axis { display: flex; justify-content: space-between; font-size: var(--fs-micro); color: var(--ink-3); margin-top: -8px; }
+
+/* ---------- Donut: parts of a whole, with the list beside it ---------- */
+.donut-box { container-type: inline-size; }
+.donut { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px 28px; align-items: center; }
+.donut-ring { position: relative; width: var(--size, 168px); height: var(--size, 168px); flex-shrink: 0; }
+.donut-ring svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.donut-ring circle { fill: none; stroke-width: 15; transition: opacity 0.12s; }
+.donut-ring .donut-track { stroke: var(--grey-wash); }
+.donut-ring .dim { opacity: 0.28; }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; padding: 0 26px; }
+.donut-center b { font-family: var(--font-game); font-size: 34px; font-weight: 500; letter-spacing: 0; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.donut-center span { font-size: var(--fs-micro); color: var(--ink-2); line-height: 1.3; text-wrap: balance; }
+.donut-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0; }
+.donut-list li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto 44px; gap: 10px; align-items: center; padding: 7px 8px; margin: 0 -8px; border-radius: var(--radius-sm); font-size: var(--fs-ui); cursor: default; }
+.donut-list li:hover, .donut-list li:focus-visible, .donut-list li.on { background: var(--hover); }
+.donut-list li:focus-visible { outline-offset: -2px; }
+.donut-list i { width: 12px; height: 12px; border-radius: 4px; background: var(--c); }
+.donut-list .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.donut-list .n { font-family: var(--font-game); font-weight: 500; font-variant-numeric: tabular-nums; }
+.donut-list .p { text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: var(--fs-small); }
+@container (max-width: 380px) {
+  .donut { grid-template-columns: 1fr; justify-items: center; }
+  .donut-list { width: 100%; }
+}
+
+/* ---------- One bar split into parts ---------- */
+.stackbar { display: flex; gap: 2px; height: 12px; border-radius: 6px; }
+.stackbar > span { min-width: 4px; background: var(--c); }
+.stackbar > span:first-child { border-radius: 6px 0 0 6px; }
+.stackbar > span:last-child { border-radius: 0 6px 6px 0; }
+.stackbar > span:only-child { border-radius: 6px; }
+.stackbar-empty { height: 12px; border-radius: 6px; background: var(--grey-wash); }
+.stackbar > span::after { transition: none; }
+.stackbar > span:first-child::after { left: 0; transform: none; }
+.stackbar > span:last-child:not(:first-child)::after { left: auto; right: 0; transform: none; }
+
+/* ---------- Ranked bars: a name, a bar, a number ---------- */
+/* All rows share the same three columns (name, bar, number) so every bar has the same length to measure against. */
+.hbars { display: grid; grid-template-columns: var(--label-w, 132px) minmax(0, 1fr) auto; gap: 12px; }
+.hbar { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; font-size: var(--fs-ui); }
+.hbar > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar .track { height: 12px; background: var(--grey-wash); border-radius: 6px; overflow: hidden; }
+.hbar .fill { display: block; height: 100%; min-width: 4px; background: var(--c, var(--m-opened)); border-radius: 6px; }
+.hbar .fill.quiet { background: var(--m-waiting); }
+.hbar .fill.none { min-width: 0; }
+.hbar .n { min-width: 76px; text-align: right; color: var(--ink-2); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: var(--fs-small); }
+.hbar .n b { color: var(--ink); font-family: var(--font-game); font-weight: 500; font-size: var(--fs-body); }
+
+/* ---------- Columns: one thin bar per hour or per day ---------- */
+.vbars { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; align-items: end; height: 124px; border-bottom: 1px solid var(--rule-strong); }
+.vbars > div { height: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.vbars > div:hover { background: linear-gradient(var(--hover), var(--hover)) center / 100% 100% no-repeat; border-radius: 4px 4px 0 0; }
+.vbars i { display: block; width: 100%; max-width: 24px; background: var(--c, var(--m-opened)); border-radius: 6px 6px 0 0; }
+.vbars i.peak { background: var(--c-peak, var(--c, var(--m-opened))); }
+.vbars > div::after { transition: none; }
+.vbars > div:nth-child(-n + 4)::after { left: 0; transform: none; }
+.vbars > div:nth-last-child(-n + 4)::after { left: auto; right: 0; transform: none; }
+.vaxis { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px; margin-top: -8px; font-size: var(--fs-micro); color: var(--ink-3); }
+.vaxis span { text-align: center; white-space: nowrap; overflow: visible; }
+
+/* ---------- Last 30 days: sent per day, with the opened part filled in ---------- */
+.trend-bars { display: grid; grid-template-columns: repeat(30, minmax(0, 1fr)); gap: 4px; align-items: end; height: 132px; border-bottom: 1px solid var(--rule-strong); }
+.trend-col { height: 100%; display: flex; align-items: flex-end; justify-content: center; }
+.trend-col:hover { background: var(--hover); border-radius: 4px 4px 0 0; }
+.trend-sent { width: 100%; max-width: 24px; background: var(--m-waiting); border-radius: 6px 6px 0 0; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; overflow: hidden; }
+.trend-open { width: 100%; background: var(--m-opened); flex-shrink: 0; box-shadow: 0 -2px 0 var(--card); }
+.trend-open.all { box-shadow: none; }
+.trend-col::after { transition: none; }
+.trend-col:nth-child(-n + 4)::after { left: 0; transform: none; }
+.trend-col:nth-last-child(-n + 4)::after { left: auto; right: 0; transform: none; }
+
+/* ---------- Everyone at once: one line per person ---------- */
+.lines { position: relative; height: 190px; border-bottom: 1px solid var(--rule-strong); }
+.lines svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.lines polyline { fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.lines-grid { stroke: var(--rule); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.lines-max { position: absolute; top: -4px; left: 0; font-size: var(--fs-micro); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.lines:focus-visible { outline-offset: 6px; }
+.lines-cross { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--rule-hover); pointer-events: none; }
+.lines-dot { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 2px var(--card); pointer-events: none; }
+
+/* ---------- The box that appears when you point at a chart with several lines ---------- */
+.chart-tip {
+  position: absolute; z-index: 30; top: 6px; pointer-events: none; min-width: 168px;
+  display: flex; flex-direction: column; gap: 7px; padding: 9px 11px 10px;
+  background: var(--ink); color: var(--paper); border-radius: 8px; box-shadow: 0 6px 18px var(--shadow);
+  font-size: 13px; line-height: 1.3; white-space: nowrap;
+}
+.chart-tip.right { transform: translateX(14px); }
+.chart-tip.left { transform: translateX(calc(-100% - 14px)); }
+.chart-tip .tip-title { font-weight: 500; }
+.chart-tip .tip-none { opacity: 0.8; }
+.chart-tip dl { margin: 0; display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 5px 8px; align-items: center; }
+.chart-tip i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.chart-tip dt { opacity: 0.88; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.chart-tip dd { margin: 0 0 0 10px; font-weight: 500; font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ---------- Heatmap: day of the week down the side, hour of the day across ---------- */
+.heat { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 3px 10px; align-items: center; font-size: var(--fs-micro); color: var(--ink-3); }
+.heat-row { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; }
+.heat-row > i { display: block; aspect-ratio: 1; min-height: 12px; max-height: 26px; width: 100%; border-radius: 5px; background: var(--grey-wash); }
+/* One hue, five steps: opens are green, and the busier the hour the deeper the green. */
+.heat-row > i[data-l="1"] { background: color-mix(in oklab, var(--g-green) 34%, var(--g-green-wash)); }
+.heat-row > i[data-l="2"] { background: color-mix(in oklab, var(--g-green) 58%, var(--g-green-wash)); }
+.heat-row > i[data-l="3"] { background: color-mix(in oklab, var(--g-green) 80%, var(--g-green-wash)); }
+.heat-row > i[data-l="4"] { background: var(--g-green); }
+.heat-row > i:hover { outline: 2px solid var(--ink-2); outline-offset: 1px; }
+.heat-row > i::after { transition: none; }
+.heat-row > i:nth-child(-n + 6)::after { left: 0; transform: none; }
+.heat-row > i:nth-last-child(-n + 6)::after { left: auto; right: 0; transform: none; }
+.heat-hours { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 3px; margin-top: 3px; }
+.heat-hours span { grid-column: span 6; }
+.heat-key { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-micro); color: var(--ink-3); }
+.heat-key i { width: 14px; height: 14px; border-radius: 4px; background: var(--grey-wash); }
+.heat-key i:nth-of-type(2) { background: color-mix(in oklab, var(--g-green) 34%, var(--g-green-wash)); }
+.heat-key i:nth-of-type(3) { background: color-mix(in oklab, var(--g-green) 58%, var(--g-green-wash)); }
+.heat-key i:nth-of-type(4) { background: color-mix(in oklab, var(--g-green) 80%, var(--g-green-wash)); }
+.heat-key i:nth-of-type(5) { background: var(--g-green); }
+.heat-key span:first-child { margin-right: 3px; } .heat-key span:last-child { margin-left: 3px; }
+
+@media (max-width: 960px) {
+  .chart { padding: 16px var(--pad); }
+  .lines { height: 160px; }
+  .vbars { height: 104px; gap: 2px; }
+  .vaxis { gap: 2px; }
+  .trend-bars { gap: 2px; height: 104px; }
+  .hbars { --label-w: 108px; column-gap: 8px; }
+  .hbar .n { min-width: 64px; }
+  .heat { gap: 2px 8px; } .heat-row, .heat-hours { gap: 2px; }
+  .heat-row > i { min-height: 9px; border-radius: 3px; }
+}

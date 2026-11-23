@@ -1,0 +1,156 @@
+/* Levels: the prize for each level, the bar between two levels, the path of levels, the "Your level" card
+   and the shelf of every prize. Each prize wears one of the game's bright hues (--g-*); the hue reaches the
+   parts that use it through three custom properties set on the element:
+     --lv-hue (the mark), --lv-wash (the soft face), --lv-ink (the drawing and numerals on the wash).
+   Won prizes are full colour, the next one is a dashed outline in its hue, later ones a dashed grey outline. */
+
+/* ---------- The prize ---------- */
+.lv-prize {
+  --s: 28px;
+  position: relative; display: inline-block; flex: none; vertical-align: middle; line-height: 0;
+  width: var(--s); height: var(--s);
+}
+.lv-prize.sm { --s: 20px; }
+.lv-prize.md { --s: 28px; }
+.lv-prize.lg { --s: 44px; }
+.lv-prize.xl { --s: 72px; }
+.lv-prize > svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+/* Won: a band of the hue round a soft face, the drawing in ink with the hue filled into its main part. */
+.lv-band { fill: var(--lv-hue); }
+.lv-face { fill: var(--lv-wash); }
+.lv-studs circle { fill: var(--lv-wash); }
+.lv-draw { color: var(--lv-ink); }
+.lv-gl, .lv-gf { stroke: var(--lv-ink); stroke-width: var(--gw, 2); stroke-linecap: round; stroke-linejoin: round; }
+.lv-gl { fill: none; }
+.lv-gf { fill: var(--lv-hue); }
+.lv-gk { fill: var(--lv-ink); stroke: none; }
+.lv-gw { fill: var(--lv-wash); stroke: var(--lv-ink); stroke-width: var(--gw, 2); stroke-linecap: round; stroke-linejoin: round; }
+.lv-num { fill: var(--lv-ink); font-family: var(--font-game), var(--font-head); font-weight: 500; font-variant-numeric: tabular-nums; letter-spacing: 0; }
+.lv-plate { fill: var(--card); stroke: var(--lv-hue); stroke-width: 1.2; }
+
+/* Frames from Level 13: a ribbon under the medal, or a laurel with a star or crown above it. */
+.lv-tail { fill: color-mix(in oklab, var(--lv-hue) 76%, var(--lv-ink)); }
+.lv-label { fill: var(--lv-wash); stroke: var(--lv-hue); stroke-width: 1.5; stroke-linejoin: round; }
+.lv-fin { fill: var(--lv-hue); stroke: var(--lv-ink); stroke-width: 1.3; stroke-linejoin: round; }
+.lv-leaf { fill: var(--lv-hue); }
+.lv-stem { fill: none; stroke: var(--lv-hue); stroke-width: 1.1; stroke-linecap: round; }
+/* Past the last level: a ring of beads (a plain ring when it is too small for beads). */
+.lv-bead { fill: var(--lv-hue); }
+.lv-ring { fill: none; stroke: var(--lv-hue); stroke-opacity: 0.5; stroke-width: 1.1; }
+.lv-ring.fine { stroke-width: 0.7; }
+.lv-prize.sm .lv-bead, .lv-prize.md .lv-bead { display: none; }
+.lv-prize.sm .lv-ring, .lv-prize.md .lv-ring { stroke-opacity: 1; stroke-width: 2.4; }
+.lv-prize.sm .lv-ring.fine, .lv-prize.md .lv-ring.fine { display: none; }
+
+/* Next: the same emblem, dashed, in the hue, with the drawing faint. */
+.lv-soft { fill: none; }
+.lv-dash { fill: none; stroke: var(--lv-hue); stroke-linecap: butt; }
+.lv-prize.next .lv-soft { fill: var(--lv-wash); fill-opacity: 0.55; }
+.lv-prize.next .lv-draw { opacity: 0.6; }
+.lv-prize.next .lv-gf { fill: none; stroke: var(--lv-hue); }
+.lv-prize.next .lv-gl { stroke: var(--lv-hue); }
+.lv-prize.next .lv-gk { fill: var(--lv-hue); }
+.lv-prize.next .lv-gw { fill: none; stroke: var(--lv-hue); }
+.lv-prize.next .lv-num { fill: var(--lv-ink); opacity: 0.85; }
+.lv-prize.next .lv-tail, .lv-prize.next .lv-label { fill: none; stroke: var(--lv-hue); stroke-width: 1.1; stroke-dasharray: 2.4 1.8; }
+.lv-prize.next .lv-fin { fill: none; stroke: var(--lv-hue); stroke-width: 1; }
+.lv-prize.next .lv-label { fill: var(--lv-wash); fill-opacity: 0.55; }
+.lv-prize.next .lv-leaf { fill: none; stroke: var(--lv-hue); stroke-width: 0.8; }
+.lv-prize.next .lv-bead { fill-opacity: 0.6; }
+
+/* Later: grey, dashed, nothing to win yet. */
+.lv-prize.later .lv-dash { stroke: var(--rule-hover); }
+.lv-prize.later .lv-draw { opacity: 0.55; }
+.lv-prize.later .lv-gf, .lv-prize.later .lv-gl, .lv-prize.later .lv-gw { fill: none; stroke: var(--ink-3); }
+.lv-prize.later .lv-gk { fill: var(--ink-3); }
+.lv-prize.later .lv-num { fill: var(--ink-3); }
+.lv-prize.later .lv-tail, .lv-prize.later .lv-label { fill: none; stroke: var(--rule-hover); stroke-width: 1.1; stroke-dasharray: 2.4 1.8; }
+.lv-prize.later .lv-fin { fill: none; stroke: var(--rule-hover); stroke-width: 1; }
+.lv-prize.later .lv-leaf { fill: none; stroke: var(--ink-3); stroke-width: 0.8; opacity: 0.6; }
+.lv-prize.later .lv-stem { stroke: var(--rule-hover); }
+.lv-prize.later .lv-bead { fill: var(--rule-hover); }
+.lv-prize.later .lv-ring { stroke: var(--rule-hover); stroke-opacity: 1; }
+
+/* ---------- The bar: from this level to the next ---------- */
+.lv-bar { --s: 28px; display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; max-width: 360px; font-size: var(--fs-small); line-height: 1.35; color: var(--ink-2); }
+.lv-bar.compact { --s: 20px; gap: 5px; max-width: 260px; }
+.lv-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.lv-track { position: relative; flex: 1 1 0; min-width: 8px; height: 6px; border-radius: 3px; background: var(--lv-wash); overflow: hidden; }
+.lv-bar.compact .lv-track { height: 4px; border-radius: 2px; }
+.lv-fill { position: absolute; left: 0; top: 0; bottom: 0; min-width: 6px; max-width: 100%; border-radius: 3px; background: var(--lv-hue); }
+.lv-bar.compact .lv-fill { min-width: 4px; border-radius: 2px; }
+
+/* Where each level starts, centred under its prize. */
+.lv-ends { display: flex; justify-content: space-between; font-size: var(--fs-micro); line-height: 1; color: var(--ink-3); }
+.lv-end { display: flex; justify-content: center; width: var(--s); white-space: nowrap; }
+.lv-end.long:first-child { justify-content: flex-start; }
+.lv-end.long:last-child { justify-content: flex-end; }
+.lv-cap { overflow-wrap: break-word; min-width: 0; }
+.lv-cap b { font-family: var(--font-game), var(--font-head); font-weight: 500; color: var(--ink); }
+.lv-bar.compact .lv-cap { font-size: var(--fs-micro); }
+
+/* ---------- The path: the level behind you, yours, the next, the one after ---------- */
+.lv-path { container-type: inline-size; width: 100%; list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); max-width: 640px; }
+.lv-stop { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; text-align: center; }
+.lv-stop-art { height: 72px; display: grid; place-items: center; }
+.lv-stop-text { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; padding-inline: 2px; line-height: 1.3; }
+.lv-stop-name { font-family: var(--font-game), var(--font-head); font-size: var(--fs-ui); font-weight: 500; color: var(--lv-ink); line-height: 1.2; text-wrap: balance; }
+.lv-stop-sub { font-size: var(--fs-micro); color: var(--ink-2); white-space: nowrap; }
+.lv-stop-pts { font-size: var(--fs-micro); color: var(--ink-3); white-space: nowrap; }
+.lv-stop.later .lv-stop-name { color: var(--ink-3); }
+.lv-stop.later .lv-stop-sub { color: var(--ink-3); }
+
+/* In a narrow space the labels shed the word "points" (the next level's label still says "to go"), so lines
+   under each prize never wrap into each other. The word stays for screen readers. */
+@container (max-width: 500px) {
+  .lv-stop-text { padding-inline: 0; }
+  .lv-stop-name { font-size: var(--fs-small); white-space: nowrap; }
+  .lv-stop-sub, .lv-stop-pts { font-size: var(--fs-micro); white-space: nowrap; }
+  .lv-unit { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* The line from one stop to the next runs from the edge of one prize to the edge of the other. */
+.lv-conn {
+  position: absolute; top: 35px; height: 2px; pointer-events: none;
+  left: calc(50% + var(--a)); width: calc(100% - var(--a) - var(--b));
+}
+.lv-conn > i { position: absolute; top: 0; bottom: 0; display: block; }
+.lv-conn-fill { left: 0; background: var(--cur); border-radius: 0 1px 1px 0; }
+.lv-conn.done > i { left: 0; right: 0; background: var(--cur); }
+.lv-conn-rest { right: 0; border-top: 2px dashed var(--rule-strong); }
+.lv-conn.toward .lv-conn-rest { border-top-color: var(--rule-hover); }
+.lv-conn.ahead .lv-conn-rest { left: 0; }
+.lv-conn.done .lv-conn-rest { border-top: 0; }
+
+/* ---------- The card ---------- */
+.lv-card-body { padding: 20px var(--pad) 22px; display: flex; flex-direction: column; gap: 24px; }
+.lv-card-top {
+  display: flex; align-items: center; gap: 18px; min-width: 0; padding: 16px 18px; border-radius: var(--radius);
+  background: color-mix(in oklab, var(--lv-wash) 70%, var(--card));
+  border: 1px solid color-mix(in oklab, var(--lv-hue) 28%, var(--card));
+}
+.lv-card-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.lv-card-title { font-family: var(--font-game), var(--font-head); font-size: 26px; font-weight: 500; letter-spacing: 0; line-height: 1.1; color: var(--ink); }
+.lv-card-title span { color: var(--lv-ink); }
+.lv-card-sub { font-size: var(--fs-small); color: var(--ink-2); }
+
+/* ---------- The shelf: every prize, won and still to win ---------- */
+.lv-shelf-wrap { container-type: inline-size; width: 100%; }
+.lv-shelf { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px 6px; }
+.lv-shelf-item { display: flex; flex-direction: column; align-items: center; gap: 10px; min-width: 0; text-align: center; }
+.lv-shelf-art { height: 72px; display: grid; place-items: center; }
+.lv-shelf-text { display: flex; flex-direction: column; align-items: center; gap: 2px; max-width: 100%; line-height: 1.3; }
+.lv-shelf-name { font-family: var(--font-game), var(--font-head); font-size: var(--fs-ui); font-weight: 500; line-height: 1.2; color: var(--lv-ink); }
+.lv-shelf-sub { font-size: var(--fs-micro); color: var(--ink-3); }
+.lv-shelf-next { font-size: var(--fs-micro); color: var(--ink-2); text-wrap: balance; }
+.lv-shelf-here { font-size: var(--fs-micro); color: var(--lv-ink); }
+.lv-shelf-item.later .lv-shelf-name { color: var(--ink-3); }
+@container (min-width: 440px) { .lv-shelf { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 22px 10px; } }
+@container (min-width: 880px) { .lv-shelf { grid-template-columns: repeat(10, minmax(0, 1fr)); } }
+
+@media (max-width: 640px) {
+  .lv-card-body { padding: 18px 16px 20px; gap: 20px; }
+  .lv-card-top { padding: 14px; gap: 14px; }
+  .lv-card-title { font-size: 22px; }
+}

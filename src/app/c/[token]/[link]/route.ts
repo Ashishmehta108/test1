@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
   const position = Number.parseInt(link, 10);
 
   // Only ever redirect to a URL the sender saved, so this can't be abused as an open redirect.
-  const target = Number.isFinite(position) ? await findLink(token, position) : undefined;
+  const target = Number.isInteger(position) && position > 0 && position < 100_000 ? await findLink(token, position) : undefined;
   if (!target) {
     return new NextResponse("This link is no longer available.", {
       status: 404,
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ token: stri
     sessionToken: req.cookies.get(SESSION_COOKIE)?.value,
   };
   after(() =>
-    recordClick(token, target.link_id, hit).catch((err) => console.error("[tracker] click failed", err)),
+    recordClick(target, hit).catch((err) => console.error("[tracker] click failed", err)),
   );
 
   return NextResponse.redirect(target.url, { status: 302, headers: { "Cache-Control": "no-store" } });

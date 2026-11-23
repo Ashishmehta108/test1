@@ -1,0 +1,8 @@
+/* Account: your details, then your password. One readable column, not stretched. */
+.account { display: flex; flex-direction: column; gap: var(--gap); width: 100%; max-width: 560px; }
+.account .fact { align-items: center; }
+.account .fact dd { min-width: 0; overflow-wrap: anywhere; }
+/* Your name carries your own colour, the same one you wear everywhere else in the app. */
+.fact-who { display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.fact-who .avatar { width: 30px; height: 30px; font-size: 12px; }
+.account .fact .pill { font-size: 13px; padding: 4px 11px; }

@@ -1,8 +1,10 @@
+import { and, eq, gt, lt } from "drizzle-orm";
 import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { iso, one, q } from "./db";
+import { getDb } from "@/db";
+import { sessions, users, type Role } from "@/db/schema";
 import { randomToken } from "./ids";
 import { clientIp } from "./request";
 
@@ -13,7 +15,7 @@ export type User = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "user";
+  role: Role;
   active: boolean;
 };
 
@@ -35,31 +37,47 @@ function cookieOptions() {
 }
 
 export async function createSession(userId: string) {
+  const db = await getDb();
   const token = randomToken(40);
-  await q(
-    `INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
-    [token, userId, iso(SESSION_DAYS * 86_400_000)],
-  );
+  await db.insert(sessions).values({ token, userId, expiresAt: new Date(Date.now() + SESSION_DAYS * 86_400_000) });
   (await cookies()).set(SESSION_COOKIE, token, cookieOptions());
+
+  // Tidy up this person's old, expired sessions once the page has been sent.
+  after(() =>
+    db
+      .delete(sessions)
+      .where(and(eq(sessions.userId, userId), lt(sessions.expiresAt, new Date())))
+      .then(() => undefined, (err) => console.error("[tracker] could not clear old sessions", err)),
+  );
 }
 
 export async function destroySession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (token) await q(`DELETE FROM sessions WHERE token = $1`, [token]);
+  if (token) await (await getDb()).delete(sessions).where(eq(sessions.token, token));
   jar.delete(SESSION_COOKIE);
 }
 
-type UserWithIp = User & { last_ip: string | null; last_ip_at: Date | string | null };
+type UserWithIp = User & { lastIp: string | null; lastIpAt: Date | null };
 
 export async function userForSessionToken(token: string | undefined): Promise<UserWithIp | undefined> {
   if (!token) return undefined;
-  return one<UserWithIp>(
-    `SELECT u.id, u.email, u.name, u.role, u.active, u.last_ip, u.last_ip_at
-       FROM sessions s JOIN users u ON u.id = s.user_id
-      WHERE s.token = $1 AND s.expires_at > $2 AND u.active`,
-    [token, iso()],
-  );
+  const db = await getDb();
+  const [found] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+      active: users.active,
+      lastIp: users.lastIp,
+      lastIpAt: users.lastIpAt,
+    })
+    .from(sessions)
+    .innerJoin(users, eq(users.id, sessions.userId))
+    .where(and(eq(sessions.token, token), gt(sessions.expiresAt, new Date()), eq(users.active, true)))
+    .limit(1);
+  return found;
 }
 
 /** Looked up once per request, even when the layout and the page both ask. */
@@ -67,19 +85,21 @@ export const getUser = cache(async (): Promise<User | undefined> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   const found = await userForSessionToken(token);
   if (!found) return undefined;
-  const { last_ip, last_ip_at, ...user } = found;
+  const { lastIp, lastIpAt, ...user } = found;
 
   // Remember the sender's internet address so their own views of an email
   // (from the same connection) are not counted as opens. Done after the page
   // is sent, and only when something actually changed.
   const ip = clientIp(await headers());
-  const stale = !last_ip_at || new Date(last_ip_at).getTime() < Date.now() - 10 * 60_000;
-  if (ip && (last_ip !== ip || stale)) {
-    after(() =>
-      q(`UPDATE users SET last_ip = $2, last_ip_at = $3 WHERE id = $1`, [user.id, ip, iso()]).catch((err) =>
-        console.error("[tracker] could not save address", err),
-      ),
-    );
+  const stale = !lastIpAt || lastIpAt.getTime() < Date.now() - 10 * 60_000;
+  if (ip && (lastIp !== ip || stale)) {
+    after(async () => {
+      try {
+        await (await getDb()).update(users).set({ lastIp: ip, lastIpAt: new Date() }).where(eq(users.id, user.id));
+      } catch (err) {
+        console.error("[tracker] could not save address", err);
+      }
+    });
   }
   return user;
 });

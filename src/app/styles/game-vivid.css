@@ -1,0 +1,37 @@
+/* The game's voice: a rounded type (--font-game) and bright colour on the game pages (leaderboard and profile).
+   Loaded last, after the three game families. Sentences stay in ink at body type; numbers, names of prizes,
+   places and headings of the game cards take the game type at medium weight. */
+
+/* ---------- Game type ---------- */
+.lv-n, .lv-card-title, .lv-stop-name,
+.st-count, .st-name, .st-sub,
+.gb-place-n, .gb-pts, .gb-chip, .gb-move, .gb-new, .gb-lv, .gb-you, .gb-step-label,
+.game-plus, .game-toast-text b, .game-leader-who b, .game-next-text b, .game-first-text b,
+.pf-name h2, .game-page .stat .v, .game-page .card-head h2, .game-page .page-head h1 {
+  font-family: var(--font-game);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.game-page .page-head h1 { font-size: 34px; }
+.game-page .stat .v { font-size: 34px; }
+.game-page .card-head h2 { font-size: 18px; }
+
+/* ---------- Game pages ---------- */
+/* The wrapper only marks the page; it adds no box, so the page keeps its own spacing. */
+.game-page { display: contents; }
+
+/* ---------- Profile hero: a bright card with the current prize ---------- */
+.pf-hero {
+  --hero: var(--lv-hue, var(--g-indigo));
+  background: color-mix(in oklab, var(--hero) 14%, var(--card));
+  border-color: color-mix(in oklab, var(--hero) 35%, var(--rule-strong));
+}
+.pf-name span { color: color-mix(in oklab, var(--hero) 60%, var(--ink-2)); }
+.pf-prize-text { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; min-width: 220px; }
+.pf-prize-text .lv-bar { width: 100%; margin-top: 6px; }
+.pf-prize-text b { font-family: var(--font-game); font-weight: 500; font-size: 22px; color: var(--lv-ink, var(--ink)); }
+.pf-prize-text span { font-size: var(--fs-small); color: var(--ink-2); }
+@media (max-width: 640px) {
+  .pf-prize { width: 100%; justify-content: space-between; flex-direction: row-reverse; }
+  .pf-prize-text { align-items: flex-start; text-align: left; min-width: 0; flex: 1; }
+}

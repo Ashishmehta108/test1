@@ -1,12 +1,17 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import { and, eq, exists, gt, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSession, destroySession, requireAdmin, requireUser, type User } from "@/lib/auth";
-import { iso, one, q } from "@/lib/db";
-import { isEmail, normaliseUrl } from "@/lib/format";
+import { at, getDb } from "@/db";
+import { clickEvents, emails, links, openEvents, sessions, users } from "@/db/schema";
+import { isEmail } from "@/lib/format";
 import { newId, randomToken } from "@/lib/ids";
+import { linksIn, MAX_NOTES, subjectOf } from "@/lib/notes";
+import { THEME_COOKIE, themeFrom } from "@/lib/theme";
 import { recompute } from "@/lib/track";
 
 const INVITE_HOURS = 72;
@@ -21,9 +26,9 @@ function back(path: string, params: Record<string, string>): never {
   redirect(qs ? `${path}?${qs}` : path);
 }
 
-/** True when this person may change the email: it's theirs, or they're an admin. */
-function canTouch(user: User) {
-  return { owner: user.id, admin: user.role === "admin" };
+/** This email, as long as it's the person's own (an admin may touch anyone's). */
+function emailOf(user: User, emailId: string) {
+  return user.role === "admin" ? eq(emails.id, emailId) : and(eq(emails.id, emailId), eq(emails.ownerId, user.id));
 }
 
 /* ---------- Signing in ---------- */
@@ -31,11 +36,13 @@ function canTouch(user: User) {
 export async function login(form: FormData) {
   const email = text(form, "email").toLowerCase();
   const password = text(form, "password");
-  const user = await one<{ id: string; password_hash: string | null; active: boolean }>(
-    `SELECT id, password_hash, active FROM users WHERE email = $1`,
-    [email],
-  );
-  const ok = user?.password_hash && user.active && (await bcrypt.compare(password, user.password_hash));
+  const db = await getDb();
+  const [user] = await db
+    .select({ id: users.id, passwordHash: users.passwordHash, active: users.active })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  const ok = user?.passwordHash && user.active && (await bcrypt.compare(password, user.passwordHash));
   if (!ok) back("/login", { error: "wrong", email });
   await createSession(user!.id);
   redirect("/");
@@ -55,14 +62,14 @@ export async function acceptInvite(form: FormData) {
   if (password.length < 8) back(path, { error: "short" });
   if (password !== confirm) back(path, { error: "match" });
 
-  const user = await one<{ id: string }>(
-    `UPDATE users SET password_hash = $2, invite_token = NULL, invite_expires = NULL
-      WHERE invite_token = $1 AND invite_expires > $3 AND active
-      RETURNING id`,
-    [token, await bcrypt.hash(password, 10), iso()],
-  );
+  const db = await getDb();
+  const [user] = await db
+    .update(users)
+    .set({ passwordHash: await bcrypt.hash(password, 10), inviteToken: null, inviteExpires: null })
+    .where(and(eq(users.inviteToken, token), gt(users.inviteExpires, new Date()), eq(users.active, true)))
+    .returning({ id: users.id });
   if (!user) back(path, { error: "expired" });
-  await createSession(user!.id);
+  await createSession(user.id);
   redirect("/?welcome=1");
 }
 
@@ -70,94 +77,117 @@ export async function changePassword(form: FormData) {
   const user = await requireUser();
   const current = text(form, "current");
   const next = text(form, "password");
-  const row = await one<{ password_hash: string }>(`SELECT password_hash FROM users WHERE id = $1`, [user.id]);
-  if (!row || !(await bcrypt.compare(current, row.password_hash))) back("/account", { error: "current" });
+  const db = await getDb();
+  const [row] = await db.select({ passwordHash: users.passwordHash }).from(users).where(eq(users.id, user.id)).limit(1);
+  if (!row?.passwordHash || !(await bcrypt.compare(current, row.passwordHash))) back("/account", { error: "current" });
   if (next.length < 8) back("/account", { error: "short" });
-  await q(`UPDATE users SET password_hash = $2 WHERE id = $1`, [user.id, await bcrypt.hash(next, 10)]);
+  await db.update(users).set({ passwordHash: await bcrypt.hash(next, 10) }).where(eq(users.id, user.id));
   back("/account", { ok: "password" });
+}
+
+/** Appearance: remembers light, dark, or "match my device" on this browser. */
+export async function setTheme(form: FormData) {
+  const choice = themeFrom(text(form, "theme"));
+  const jar = await cookies();
+  if (choice === "system") jar.delete(THEME_COOKIE);
+  else jar.set(THEME_COOKIE, choice, { path: "/", maxAge: 365 * 24 * 60 * 60, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+  revalidatePath("/", "layout");
 }
 
 /* ---------- Tracked emails ---------- */
 
-export async function createEmail(form: FormData) {
+export type TrackState = { errors?: { recipient?: string; notes?: string }; message?: string };
+
+/**
+ * Saves a new tracked email, then goes to its page with the steps to follow.
+ * Problems come back to the form (nothing typed is lost) instead of opening another page.
+ */
+export async function createEmail(_prev: TrackState, form: FormData): Promise<TrackState> {
   const user = await requireUser();
   const recipient = text(form, "recipient").toLowerCase();
-  const name = text(form, "name");
-  const label = text(form, "label");
-  const rawLinks = text(form, "links");
+  const notes = text(form, "notes");
 
-  if (!isEmail(recipient)) back("/new", { error: "email", name, label, links: rawLinks });
-
-  const links: string[] = [];
-  for (const line of rawLinks.split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    const url = normaliseUrl(line);
-    if (!url) back("/new", { error: "link", recipient, name, label, links: rawLinks });
-    if (!links.includes(url!)) links.push(url!);
-  }
+  const errors: NonNullable<TrackState["errors"]> = {};
+  if (!recipient) errors.recipient = "Required";
+  else if (!isEmail(recipient)) errors.recipient = "That email address doesn't look right. It should look like priya@acme.com.";
+  if (notes.length > MAX_NOTES) errors.notes = `Keep notes under ${MAX_NOTES.toLocaleString("en")} characters.`;
+  if (errors.recipient || errors.notes) return { errors };
 
   const id = newId();
-  // The email and all of its links are saved in a single trip to the database.
-  await q(
-    `WITH e AS (
-       INSERT INTO emails (id, owner_id, token, recipient_email, recipient_name, label)
-       VALUES ($1,$2,$3,$4,$5,$6)
-     )
-     INSERT INTO links (email_id, position, url)
-     SELECT $1, CAST(t.ord AS integer), t.url FROM unnest($7::text[]) WITH ORDINALITY AS t(url, ord)`,
-    [id, user.id, randomToken(22), recipient, name || null, label || null, links],
-  );
+  const urls = linksIn(notes);
+  try {
+    const db = await getDb();
+    // The email and all of its links are saved in a single trip to the database.
+    // (The list of links goes over as one piece of text and is split up by the database.)
+    await db.execute(sql`
+      WITH saved AS (
+        INSERT INTO emails (id, owner_id, token, recipient_email, label, notes)
+        VALUES (${id}, ${user.id}, ${randomToken(22)}, ${recipient}, ${subjectOf(notes) || null}, ${notes || null})
+      )
+      INSERT INTO links (email_id, position, url)
+      SELECT ${id}::text, CAST(t.ord AS integer), t.url
+        FROM jsonb_array_elements_text(${JSON.stringify(urls)}::jsonb) WITH ORDINALITY AS t(url, ord)`);
+  } catch (err) {
+    console.error("[tracker] could not save email", err);
+    return { message: "Couldn't save just now. Nothing was lost, so please try again." };
+  }
   redirect(`/emails/${id}`);
 }
 
 export async function markSent(emailId: string) {
   const user = await requireUser();
-  const who = canTouch(user);
-  const done = await one(
-    `UPDATE emails SET sent_at = COALESCE(sent_at, $2) WHERE id = $1 AND (owner_id = $3 OR $4) RETURNING id`,
-    [emailId, iso(), who.owner, who.admin],
-  );
+  const db = await getDb();
+  // The status is worked out from the totals already stored, so this is one trip.
+  const [done] = await db
+    .update(emails)
+    .set({
+      sentAt: sql`coalesce(${emails.sentAt}, ${at(new Date())})`,
+      status: sql`CASE WHEN ${emails.clickCount} > 0 THEN 'clicked' WHEN ${emails.openCount} > 0 THEN 'opened' WHEN ${emails.maybeCount} > 0 THEN 'maybe' ELSE 'sent' END`,
+    })
+    .where(emailOf(user, emailId))
+    .returning({ id: emails.id });
   if (!done) redirect("/");
-  await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
 }
 
 export async function markNotSent(emailId: string) {
   const user = await requireUser();
-  const who = canTouch(user);
-  const done = await one(`UPDATE emails SET sent_at = NULL WHERE id = $1 AND (owner_id = $2 OR $3) RETURNING id`, [
-    emailId,
-    who.owner,
-    who.admin,
-  ]);
+  const db = await getDb();
+  const [done] = await db
+    .update(emails)
+    .set({ sentAt: null, status: "draft" })
+    .where(emailOf(user, emailId))
+    .returning({ id: emails.id });
   if (!done) redirect("/");
-  await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
 }
 
 export async function deleteEmail(emailId: string) {
   const user = await requireUser();
-  const who = canTouch(user);
-  const done = await one(`DELETE FROM emails WHERE id = $1 AND (owner_id = $2 OR $3) RETURNING id`, [
-    emailId,
-    who.owner,
-    who.admin,
-  ]);
+  const db = await getDb();
+  const [done] = await db.delete(emails).where(emailOf(user, emailId)).returning({ id: emails.id });
   redirect(done ? "/?deleted=1" : "/");
 }
 
 /** "That was me" — the sender says an open or click wasn't the recipient. */
-export async function ignoreEvent(emailId: string, type: "open" | "click", eventId: string) {
+export async function ignoreEvent(emailId: string, type: "open" | "click", eventId: number) {
   const user = await requireUser();
-  const who = canTouch(user);
-  const table = type === "open" ? "open_events" : "click_events";
-  const done = await one(
-    `UPDATE ${table} ev SET kind = 'ignored', reason = $3
-       FROM emails e
-      WHERE ev.id = $1 AND ev.email_id = $2 AND e.id = ev.email_id AND (e.owner_id = $4 OR $5)
-      RETURNING ev.id`,
-    [eventId, emailId, `Marked as not them by ${user.name}`, who.owner, who.admin],
-  );
+  const db = await getDb();
+  const change = { kind: "ignored" as const, reason: `Marked as not them by ${user.name}` };
+  // The event only changes when its email is one this person is allowed to touch.
+  const mine = exists(db.select({ one: sql`1` }).from(emails).where(emailOf(user, emailId)));
+  const [done] =
+    type === "open"
+      ? await db
+          .update(openEvents)
+          .set(change)
+          .where(and(eq(openEvents.id, eventId), eq(openEvents.emailId, emailId), mine))
+          .returning({ id: openEvents.id })
+      : await db
+          .update(clickEvents)
+          .set(change)
+          .where(and(eq(clickEvents.id, eventId), eq(clickEvents.emailId, emailId), mine))
+          .returning({ id: clickEvents.id });
   if (!done) redirect("/");
   await recompute(emailId);
   revalidatePath(`/emails/${emailId}`);
@@ -172,32 +202,46 @@ export async function inviteUser(form: FormData) {
   if (!name) back("/team", { error: "name", email });
   if (!isEmail(email)) back("/team", { error: "email", name });
 
-  const exists = await one(`SELECT 1 FROM users WHERE email = $1`, [email]);
-  if (exists) back("/team", { error: "exists", name, email });
-
+  const db = await getDb();
   const id = newId();
-  await q(
-    `INSERT INTO users (id, email, name, role, invite_token, invite_expires)
-     VALUES ($1,$2,$3,'user',$4,$5)`,
-    [id, email, name, randomToken(32), iso(INVITE_HOURS * 3_600_000)],
-  );
+  // The email address is unique in the database, so a duplicate simply inserts nothing.
+  const [created] = await db
+    .insert(users)
+    .values({ id, email, name, role: "user", inviteToken: randomToken(32), inviteExpires: new Date(Date.now() + INVITE_HOURS * 3_600_000) })
+    .onConflictDoNothing({ target: users.email })
+    .returning({ id: users.id });
+  if (!created) back("/team", { error: "exists", name, email });
   back("/team", { invited: id });
 }
 
 export async function renewInvite(userId: string) {
   await requireAdmin();
-  await q(
-    `UPDATE users SET invite_token = $2, invite_expires = $3
-      WHERE id = $1 AND password_hash IS NULL`,
-    [userId, randomToken(32), iso(INVITE_HOURS * 3_600_000)],
-  );
+  const db = await getDb();
+  await db
+    .update(users)
+    .set({ inviteToken: randomToken(32), inviteExpires: new Date(Date.now() + INVITE_HOURS * 3_600_000) })
+    .where(and(eq(users.id, userId), isNull(users.passwordHash)));
   back("/team", { invited: userId });
 }
 
 export async function setActive(userId: string, active: boolean) {
   const admin = await requireAdmin();
   if (userId === admin.id) back("/team", { error: "self" });
-  await q(`UPDATE users SET active = $2 WHERE id = $1`, [userId, active]);
-  if (!active) await q(`DELETE FROM sessions WHERE user_id = $1`, [userId]);
+  const db = await getDb();
+  await db.update(users).set({ active }).where(eq(users.id, userId));
+  if (!active) await db.delete(sessions).where(eq(sessions.userId, userId));
   revalidatePath("/team");
+}
+
+/** Removes a person for good, together with the emails they tracked. Admins only, never yourself. */
+export async function deleteUser(userId: string) {
+  const admin = await requireAdmin();
+  if (userId === admin.id) back("/team", { error: "self" });
+  const db = await getDb();
+  // Their emails go first (opens, clicks and links go with each email), then the person.
+  // One statement, so it either all happens or none of it does.
+  await db.execute(sql`
+    WITH gone AS (DELETE FROM emails WHERE owner_id = ${userId})
+    DELETE FROM users WHERE id = ${userId}`);
+  back("/team", { removed: "1" });
 }

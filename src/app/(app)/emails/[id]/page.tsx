@@ -1,202 +1,250 @@
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import { headers } from "next/headers";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteEmail, ignoreEvent, markNotSent, markSent } from "@/app/actions";
 import { ConfirmButton } from "@/components/ConfirmButton";
+import { CopyLinkButton, CopyPictureButton } from "@/components/Copy";
+import { OpensChart } from "@/components/email/OpensChart";
+import { EmailPoints } from "@/components/game/EmailPoints";
+import { SendSteps } from "@/components/email/SendSteps";
+import { Markdown } from "@/components/Markdown";
 import { ShareCard } from "@/components/Share";
-import { CopyLinkButton, CopyPictureButton, PasteCheck } from "@/components/Copy";
-import { IconBack, IconSend } from "@/components/Icons";
-import { When } from "@/components/When";
-import { StatusTag } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
+import { TimeZoneNote, When } from "@/components/When";
+import { ResultsEmpty } from "@/components/results/ResultsEmpty";
+import { CardHead, PageHead, Stat, Stats, StatusTag } from "@/components/ui";
+import { getDb } from "@/db";
+import { clickEvents, emails, links, openEvents, users } from "@/db/schema";
 import { requireUser } from "@/lib/auth";
-import { one, q } from "@/lib/db";
 import { deviceName, iso } from "@/lib/format";
+import { POINTS_OPENED, POINTS_SENT } from "@/lib/game";
 import { baseUrl } from "@/lib/request";
-import type { EventKind, Status } from "@/lib/track";
 
-type Email = {
-  id: string;
-  owner_id: string;
-  owner_name: string;
-  token: string;
-  recipient_email: string;
-  recipient_name: string | null;
-  label: string | null;
-  status: Status;
-  created_at: Date;
-  sent_at: Date | null;
-  first_open_at: Date | null;
-  last_open_at: Date | null;
-  open_count: number;
-  maybe_count: number;
-  click_count: number;
-  share_token: string | null;
-};
+type EventType = "open" | "click";
 
-type Event = {
-  id: string;
-  type: "open" | "click";
-  at: Date;
-  user_agent: string | null;
-  kind: EventKind;
-  reason: string | null;
-  url: string | null;
-};
+/** Everything this page shows, fetched at the same time (one wait instead of several). */
+async function load(id: string) {
+  const db = await getDb();
+
+  const opens = db
+    .select({
+      id: openEvents.id,
+      type: sql<EventType>`'open'`.as("type"),
+      at: openEvents.at,
+      userAgent: openEvents.userAgent,
+      kind: openEvents.kind,
+      reason: openEvents.reason,
+      url: sql<string | null>`null::text`.as("url"),
+    })
+    .from(openEvents)
+    .where(eq(openEvents.emailId, id));
+  const clicks = db
+    .select({
+      id: clickEvents.id,
+      type: sql<EventType>`'click'`.as("type"),
+      at: clickEvents.at,
+      userAgent: clickEvents.userAgent,
+      kind: clickEvents.kind,
+      reason: clickEvents.reason,
+      url: sql<string | null>`${links.url}`.as("url"),
+    })
+    .from(clickEvents)
+    .leftJoin(links, eq(links.id, clickEvents.linkId))
+    .where(eq(clickEvents.emailId, id));
+
+  // Real opens and clicks of the last 31 days, for the "Opens over time" chart.
+  // The browser sorts them into the viewer's own days.
+  const since = sql`now() - interval '31 days'`;
+  const recentOpens = db
+    .select({ at: openEvents.at })
+    .from(openEvents)
+    .where(and(eq(openEvents.emailId, id), eq(openEvents.kind, "real"), gte(openEvents.at, since)))
+    .limit(5000);
+  const recentClicks = db
+    .select({ at: clickEvents.at })
+    .from(clickEvents)
+    .where(and(eq(clickEvents.emailId, id), eq(clickEvents.kind, "real"), gte(clickEvents.at, since)))
+    .limit(5000);
+
+  const [[email], linkRows, events, opensByDay, clicksByDay] = await Promise.all([
+    db
+      .select({
+        id: emails.id,
+        ownerId: emails.ownerId,
+        ownerName: users.name,
+        token: emails.token,
+        recipientEmail: emails.recipientEmail,
+        recipientName: emails.recipientName,
+        label: emails.label,
+        status: emails.status,
+        sentAt: emails.sentAt,
+        firstOpenAt: emails.firstOpenAt,
+        lastOpenAt: emails.lastOpenAt,
+        openCount: emails.openCount,
+        maybeCount: emails.maybeCount,
+        clickCount: emails.clickCount,
+        shareToken: emails.shareToken,
+        notes: emails.notes,
+      })
+      .from(emails)
+      .innerJoin(users, eq(users.id, emails.ownerId))
+      .where(eq(emails.id, id))
+      .limit(1),
+    db
+      .select({
+        id: links.id,
+        position: links.position,
+        url: links.url,
+        clicks: sql<number>`count(*) filter (where ${clickEvents.kind} = 'real')`.mapWith(Number),
+      })
+      .from(links)
+      .leftJoin(clickEvents, eq(clickEvents.linkId, links.id))
+      .where(eq(links.emailId, id))
+      .groupBy(links.id)
+      .orderBy(links.position),
+    opens.unionAll(clicks).orderBy(desc(sql`at`)).limit(200),
+    recentOpens,
+    recentClicks,
+  ]);
+  return { email, links: linkRows, events, opensByDay, clicksByDay };
+}
+
+const bare = (url: string) => url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export default async function EmailPage({ params }: { params: Promise<{ id: string }> }) {
   const me = await requireUser();
   const { id } = await params;
-
-  // Everything the page needs is fetched at the same time (one wait instead of three).
-  const [email, links, events] = await Promise.all([
-    one<Email>(
-      `SELECT e.*, u.name AS owner_name FROM emails e JOIN users u ON u.id = e.owner_id WHERE e.id = $1`,
-      [id],
-    ),
-    q<{ id: number; position: number; url: string; clicks: number }>(
-      `SELECT l.id, l.position, l.url,
-              (SELECT CAST(count(*) AS integer) FROM click_events c WHERE c.link_id = l.id AND c.kind = 'real') AS clicks
-         FROM links l WHERE l.email_id = $1 ORDER BY l.position`,
-      [id],
-    ),
-    q<Event>(
-      `SELECT CAST(id AS text) AS id, 'open' AS type, at, user_agent, kind, reason, NULL AS url FROM open_events WHERE email_id = $1
-       UNION ALL
-       SELECT CAST(c.id AS text) AS id, 'click' AS type, c.at, c.user_agent, c.kind, c.reason, l.url
-         FROM click_events c LEFT JOIN links l ON l.id = c.link_id WHERE c.email_id = $1
-       ORDER BY at DESC
-       LIMIT 200`,
-      [id],
-    ),
-  ]);
-  if (!email || (email.owner_id !== me.id && me.role !== "admin")) notFound();
+  const data = await load(id);
+  const { email, links, events } = data;
+  if (!email || (email.ownerId !== me.id && me.role !== "admin")) notFound();
 
   const base = baseUrl(await headers());
   const pixelUrl = `${base}/o/${email.token}.gif`;
-  const sent = Boolean(email.sent_at);
-  const isMine = email.owner_id === me.id;
-  const displayName = email.recipient_name || email.recipient_email;
+  const sent = Boolean(email.sentAt);
+  const isMine = email.ownerId === me.id;
+  const displayName = email.recipientName || email.recipientEmail;
+  const firstName = email.recipientName?.split(" ")[0] || "";
   const localhost = /\/\/(localhost|127\.0\.0\.1)/.test(base);
+  const tracked = (position: number) => `${base}/c/${email.token}/${position}`;
+  const anyCounted = events.some((ev) => ev.kind !== "ignored");
 
   return (
     <>
-      <div className="page-head">
-        <div className="titles">
-          <Link href={isMine ? "/" : `/?user=${email.owner_id}`} className="crumb">
-            <IconBack /> {isMine ? "Results" : `${email.owner_name}'s results`}
-          </Link>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <h1>{displayName}</h1>
-            <StatusTag status={email.status} />
-          </div>
-          <p className="muted">
-            {email.recipient_name ? `${email.recipient_email} · ` : ""}
+      <PageHead
+        back={{ href: isMine ? "/" : `/?user=${email.ownerId}`, label: isMine ? "Results" : `${email.ownerName}'s results` }}
+        title={displayName}
+        tag={<StatusTag status={email.status} />}
+        sub={
+          <>
+            {email.recipientName ? `${email.recipientEmail} · ` : ""}
             {email.label || "No subject added"}
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
+
+      {sent && (
+        <Stats label="This email's numbers" cols={email.maybeCount > 0 ? 5 : 4}>
+          <Stat label="Times opened" value={<span className="num">{email.openCount}</span>} sub={email.openCount ? undefined : "Not opened yet"} />
+          <Stat
+            label="Link clicks"
+            value={<span className="num">{email.clickCount}</span>}
+            sub={links.length ? `${plural(links.length, "tracked link")}` : "No tracked links"}
+          />
+          <Stat label="First opened" value={<span className="stat-when"><When at={iso(email.firstOpenAt)} /></span>} />
+          <Stat label="Last opened" value={<span className="stat-when"><When at={iso(email.lastOpenAt)} /></span>} />
+          {email.maybeCount > 0 && (
+            <Stat label="Maybe opened" value={<span className="num">{email.maybeCount}</span>} sub="Not counted as opens" />
+          )}
+        </Stats>
+      )}
 
       <div className="email-grid">
-        <div style={{ display: "flex", flexDirection: "column", gap: 24, minWidth: 0 }}>
+        <div className="stack">
           {!sent ? (
-            <section className="card steps" aria-label="How to send">
-              <div className="step current">
-                <div className="step-n">1</div>
-                <div className="step-body">
-                  <h3>Copy the tracking picture</h3>
-                  <p>
-                    It&apos;s a single invisible dot, made just for {email.recipient_name?.split(" ")[0] || "this person"}. Use it in one email only.
-                  </p>
-                  <div className="actions">
-                    <CopyPictureButton src={pixelUrl} />
-                  </div>
-                  <PasteCheck />
-                </div>
-              </div>
-
-              <div className="step">
-                <div className="step-n">2</div>
-                <div className="step-body">
-                  <h3>Paste it at the end of your Gmail message</h3>
-                  <p>
-                    Click just below your signature and paste (⌘V or Ctrl+V). You won&apos;t see anything appear, and that&apos;s expected.
-                  </p>
-                  {links.length > 0 && (
-                    <>
-                      <p>Use these tracked links in place of your normal ones:</p>
-                      <div className="link-list">
-                        {links.map((l) => (
-                          <div className="link-item" key={l.id}>
-                            <span className="url" title={l.url}>
-                              {l.url.replace(/^https?:\/\//, "")}
-                            </span>
-                            <CopyLinkButton trackedUrl={`${base}/c/${email.token}/${l.position}`} originalUrl={l.url} />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div className="step">
-                <div className="step-n">3</div>
-                <div className="step-body">
-                  <h3>Send it from Gmail, then come back and press this</h3>
-                  <p>Opens only start counting from here, so your own preview while writing never counts.</p>
-                  <form action={markSent.bind(null, email.id)} className="actions">
-                    <button type="submit" className="btn btn-primary">
-                      <IconSend /> I&apos;ve sent it
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </section>
+            <SendSteps
+              pixelUrl={pixelUrl}
+              firstName={firstName || "this person"}
+              links={links.map((l) => ({ id: l.id, url: l.url, trackedUrl: tracked(l.position) }))}
+              worth={`Worth ${POINTS_SENT} point${isMine ? "" : ` to ${email.ownerName.split(" ")[0]}`} now, ${POINTS_OPENED} more when it's opened.`}
+              sendForm={
+                <form action={markSent.bind(null, email.id)} className="actions">
+                  <SubmitButton className="btn btn-primary" pendingText="Saving…">
+                    I&apos;ve sent it
+                  </SubmitButton>
+                </form>
+              }
+            />
           ) : (
-            <section className="card">
-              <div className="card-head">
-                <h2>Activity</h2>
-                <span className="small faint">Newest first</span>
-              </div>
-              {events.length === 0 ? (
-                <div className="empty" style={{ padding: "40px 24px" }}>
-                  <p>
-                    Nothing yet. When {email.recipient_name?.split(" ")[0] || "they"} open the email, it&apos;ll show up here.
-                  </p>
-                </div>
-              ) : (
-                <ol className="timeline">
-                  {events.map((ev) => {
-                    const title =
-                      ev.type === "click"
-                        ? `Clicked ${ev.url ? ev.url.replace(/^https?:\/\//, "") : "a link"}`
-                        : ev.kind === "real"
-                          ? "Opened"
-                          : ev.kind === "maybe"
-                            ? "Maybe opened"
-                            : "Not counted";
-                    const dot = ev.kind === "ignored" ? "ignored" : ev.kind === "maybe" ? "maybe" : ev.type === "click" ? "click" : "real";
-                    return (
-                      <li key={`${ev.type}-${ev.id}`} className={`tl-item ${ev.kind}`}>
-                        <span className={`tl-dot ${dot}`} aria-hidden="true" />
-                        <div className="tl-main">
-                          <b>{title}</b>
-                          <span>
-                            <When at={iso(ev.at)} /> · {ev.reason || deviceName(ev.user_agent)}
-                          </span>
-                        </div>
-                        {ev.kind !== "ignored" && (
-                          <form action={ignoreEvent.bind(null, email.id, ev.type, ev.id)} className="inline-form">
-                            <button type="submit" className="btn btn-quiet btn-sm" title="Don't count this. It wasn't them.">
-                              That was me
-                            </button>
-                          </form>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ol>
+            <>
+              {email.openCount > 0 && email.sentAt && (
+                <OpensChart
+                  sentAt={iso(email.sentAt)!}
+                  opens={data.opensByDay.map((r) => iso(r.at)!)}
+                  clicks={data.clicksByDay.map((r) => iso(r.at)!)}
+                />
               )}
+
+              <section className="card" aria-labelledby="activity-heading">
+                <div className="card-head">
+                  <h2 id="activity-heading">Activity</h2>
+                  <span className="aside">Newest first</span>
+                </div>
+                {events.length === 0 ? (
+                  <ResultsEmpty title="No opens yet" small>
+                    When {firstName || "they"} open{firstName ? "s" : ""} the email, it&apos;ll show up here. Some people take a day or two.
+                  </ResultsEmpty>
+                ) : (
+                  <>
+                    {anyCounted && (
+                      <p className="tl-hint">
+                        {isMine
+                          ? "Opened your own sent email in Gmail? Press “That was me” next to it and it won't be counted."
+                          : `If ${email.ownerName} opened their own sent email, press “That was me” next to it and it won't be counted.`}
+                      </p>
+                    )}
+                    <ol className="timeline">
+                      {events.map((ev) => {
+                        const ignored = ev.kind === "ignored";
+                        const what = ev.type === "click" ? `Clicked ${ev.url ? bare(ev.url) : "a link"}` : ev.kind === "maybe" ? "Maybe opened" : "Opened";
+                        const dot = ignored ? "ignored" : ev.kind === "maybe" ? "maybe" : ev.type === "click" ? "click" : "real";
+                        return (
+                          <li key={`${ev.type}-${ev.id}`} className={`tl-item ${ev.kind}`}>
+                            <span className={`tl-dot ${dot}`} aria-hidden="true" />
+                            <div className="tl-main">
+                              <b>
+                                {what}
+                                {ignored && <span className="pill">Not counted</span>}
+                              </b>
+                              <span>
+                                <When at={iso(ev.at)} /> · {ev.reason || deviceName(ev.userAgent)}
+                              </span>
+                            </div>
+                            {!ignored && (
+                              <form action={ignoreEvent.bind(null, email.id, ev.type, ev.id)} className="inline-form">
+                                <SubmitButton className="btn btn-sm me-btn" pendingText="Saving…" aria-label={`That was me: ${what}`}>
+                                  That was me
+                                </SubmitButton>
+                              </form>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </>
+                )}
+                <TimeZoneNote className="quiet-note" />
+              </section>
+            </>
+          )}
+
+          {email.notes && (
+            <section className="card" aria-labelledby="notes-heading">
+              <div className="card-head">
+                <h2 id="notes-heading">Notes</h2>
+                <span className="aside">Only you and your admin see these</span>
+              </div>
+              <Markdown text={email.notes} className="md-pad" />
             </section>
           )}
 
@@ -207,86 +255,73 @@ export default async function EmailPage({ params }: { params: Promise<{ id: stri
           )}
         </div>
 
-        <aside style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <section className="card">
-            <dl className="facts" style={{ margin: 0 }}>
+        <aside className="email-side">
+          <section className="card" aria-label="Details">
+            <dl className="facts">
               <div className="fact">
                 <dt>Sent</dt>
                 <dd>
-                  <When at={iso(email.sent_at)} fallback="Not yet" />
+                  <When at={iso(email.sentAt)} fallback="Not yet" />
                 </dd>
               </div>
               <div className="fact">
-                <dt>First opened</dt>
-                <dd>
-                  <When at={iso(email.first_open_at)} />
-                </dd>
+                <dt>To</dt>
+                <dd className="fact-long" title={email.recipientEmail}>{email.recipientEmail}</dd>
               </div>
-              <div className="fact">
-                <dt>Last opened</dt>
-                <dd>
-                  <When at={iso(email.last_open_at)} />
-                </dd>
-              </div>
-              <div className="fact">
-                <dt>Times opened</dt>
-                <dd>{email.open_count}</dd>
-              </div>
-              <div className="fact">
-                <dt>Link clicks</dt>
-                <dd>{email.click_count}</dd>
-              </div>
-              {email.maybe_count > 0 && (
-                <div className="fact">
-                  <dt>Maybe opened</dt>
-                  <dd>{email.maybe_count}</dd>
-                </div>
-              )}
               {!isMine && (
                 <div className="fact">
                   <dt>Sent by</dt>
-                  <dd>{email.owner_name}</dd>
+                  <dd>{email.ownerName}</dd>
                 </div>
               )}
+              <div className="fact">
+                <dt>Tracked links</dt>
+                <dd>{links.length || "None"}</dd>
+              </div>
             </dl>
           </section>
 
-          <ShareCard emailId={email.id} shareUrl={email.share_token ? `${base}/share/${email.share_token}` : null} />
+          <EmailPoints status={email.status} owner={isMine ? undefined : email.ownerName.split(" ")[0]} />
+
+          <ShareCard emailId={email.id} shareUrl={email.shareToken ? `${base}/share/${email.shareToken}` : null} />
 
           {sent && (
-            <section className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <h3>Need the picture again?</h3>
-              <div className="actions">
-                <CopyPictureButton src={pixelUrl} primary={false} />
+            <section className="card" aria-labelledby="again-heading">
+              <div className="card-head">
+                <h2 id="again-heading">Need the picture again?</h2>
+              </div>
+              <div className="again-body">
+                <p className="small muted">In case it didn't make it into the email you sent.</p>
+                <div className="actions">
+                  <CopyPictureButton src={pixelUrl} primary={false} />
+                </div>
               </div>
               {links.length > 0 && (
-                <div className="link-list stacked">
+                <ul className="link-rows" aria-label="Tracked links">
                   {links.map((l) => (
-                    <div className="link-item" key={l.id}>
+                    <li key={l.id}>
                       <span className="url" title={l.url}>
-                        {l.url.replace(/^https?:\/\//, "")}
+                        {bare(l.url)}
                       </span>
-                      <span className="clicks">
-                        {l.clicks === 1 ? "1 click" : `${l.clicks} clicks`}
-                      </span>
-                      <CopyLinkButton trackedUrl={`${base}/c/${email.token}/${l.position}`} originalUrl={l.url} />
-                    </div>
+                      <span className={`clicks num${l.clicks ? " has" : ""}`}>{plural(l.clicks, "click")}</span>
+                      <CopyLinkButton trackedUrl={tracked(l.position)} originalUrl={l.url} />
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </section>
           )}
 
-          <div className="actions">
+          <div className="side-quiet">
             {sent && (
               <form action={markNotSent.bind(null, email.id)} className="inline-form">
-                <button type="submit" className="btn btn-quiet btn-sm">
+                <SubmitButton className="btn btn-quiet btn-sm" pendingText="Saving…">
                   Mark as not sent
-                </button>
+                </SubmitButton>
               </form>
             )}
             <form action={deleteEmail.bind(null, email.id)} className="inline-form">
-              <ConfirmButton className="btn btn-quiet btn-sm btn-danger" label="Delete" confirmLabel="Click again to delete" />
+              <ConfirmButton className="btn btn-quiet btn-sm btn-danger" label="Delete" confirmLabel="Click again to delete" pendingText="Deleting…" />
             </form>
           </div>
         </aside>

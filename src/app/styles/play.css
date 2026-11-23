@@ -1,0 +1,35 @@
+/* The whole app in the game's voice. Loaded last.
+   - Headings, page titles and headline numbers use the rounded game type (--font-game) at medium weight.
+   - Colour carries meaning: each status, each person and each page has its own bright hue (--g-* tokens).
+   - Sentences, labels and tables stay in Inter and ink, so reading stays easy. */
+
+/* ---------- Type ---------- */
+h1, .page-head h1 { font-family: var(--font-game); font-weight: 500; letter-spacing: 0; font-size: 32px; }
+.card-head h2, .card-title { font-family: var(--font-game); font-weight: 500; letter-spacing: 0; font-size: 18px; }
+.stat .v { font-family: var(--font-game); font-weight: 500; letter-spacing: 0; }
+.stat .l { color: var(--ink-2); }
+
+/* ---------- People: each person has their own colour ---------- */
+.avatar { background: var(--av-wash, var(--grey-wash)); border-color: color-mix(in oklab, var(--av, var(--rule)) 40%, transparent); color: var(--av-ink, var(--ink-2)); font-family: var(--font-game); font-weight: 500; font-size: 13px; }
+/* An admin wears their colour solid, with a ring of the card around it. */
+.avatar-admin { background: var(--av, var(--accent)); border-color: var(--av, var(--accent)); color: var(--card); box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--av, var(--accent)); }
+
+/* ---------- Status: brighter, still one colour per meaning ---------- */
+.tag { border-radius: 999px; padding: 6px 11px; }
+.t-draft { border-radius: 999px; }
+.t-none { color: var(--ink-2); background: var(--grey-wash); }
+.t-maybe { color: var(--g-sun-ink); background: var(--g-sun-wash); }
+.t-maybe::before { background: var(--g-sun); }
+.t-open { color: var(--g-green-ink); background: var(--g-green-wash); }
+.t-open::before { background: var(--g-green); }
+.t-click { color: var(--g-violet-ink); background: var(--g-violet-wash); }
+.t-click::before { background: var(--g-violet); }
+
+.pill { border-radius: 999px; padding: 3px 8px; }
+.pill-admin { background: var(--g-blue-wash); color: var(--g-blue-ink); }
+.pill-paused { background: var(--g-coral-wash); color: var(--g-coral-ink); }
+.pill-pending { background: var(--g-sun-wash); color: var(--g-sun-ink); }
+
+/* ---------- Buttons: rounder, friendlier ---------- */
+.btn { border-radius: 10px; }
+.btn-sm { border-radius: 8px; }

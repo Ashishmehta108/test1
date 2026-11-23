@@ -1,34 +1,54 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
-import { logout } from "@/app/actions";
+import { BrandMark } from "@/components/BrandMark";
+import { GameToasts } from "@/components/game/GameToasts";
+import { getGameState } from "@/components/game/state";
 import { Nav } from "@/components/Nav";
-import { Avatar } from "@/components/ui";
+import { SideToggle } from "@/components/SideToggle";
+import { PlaneIcon } from "@/components/ShellIcons";
+import { TrackButton, TrackEmailModal } from "@/components/TrackEmail";
+import { UserMenu } from "@/components/UserMenu";
 import { requireUser } from "@/lib/auth";
+import { THEME_COOKIE, themeFrom } from "@/lib/theme";
 
 export const dynamic = "force-dynamic";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // The viewer's points and level: one small query, shared with the page through cache().
+  const [jar, game] = await Promise.all([cookies(), getGameState(user.id)]);
+  const theme = themeFrom(jar.get(THEME_COOKIE)?.value);
+  const closed = jar.get("ot_side")?.value === "closed";
   return (
-    <>
-      <header className="topbar">
-        <div className="topbar-inner">
-          <Link href="/" className="brand">
-            <span className="brand-mark" aria-hidden="true" />
-            Open Tracker
+    <div className="shell" data-side={closed ? "closed" : "open"}>
+      <aside className="side">
+        <div className="side-top">
+          <Link href="/" className="brand" aria-label="Open Tracker, your results">
+            <BrandMark />
+            <span className="brand-name">Open Tracker</span>
           </Link>
-          <Nav admin={user.role === "admin"} />
-          <div className="me">
-            <Avatar name={user.name} admin={user.role === "admin"} />
-            <span className="name">{user.name}</span>
-            <form action={logout} className="inline-form">
-              <button className="btn btn-quiet btn-sm" type="submit">
-                Sign out
-              </button>
-            </form>
-          </div>
+          <SideToggle closed={closed} />
         </div>
-      </header>
+        <Nav admin={user.role === "admin"} />
+        <TrackButton className="btn btn-primary side-track">
+          <PlaneIcon />
+          <span className="side-track-label">Track an email</span>
+        </TrackButton>
+        <div className="side-foot">
+          <UserMenu name={user.name} email={user.email} admin={user.role === "admin"} theme={theme} level={game.level} />
+        </div>
+      </aside>
       <main className="main">{children}</main>
-    </>
+      <TrackEmailModal />
+      <GameToasts
+        userId={user.id}
+        total={game.total}
+        level={game.level.level}
+        toGo={game.level.toGo}
+        nextAt={game.level.to}
+        facts={game.facts}
+        times={game.times}
+      />
+    </div>
   );
 }

@@ -1,0 +1,125 @@
+/* One email's page: the steps to send it, then its numbers, chart and activity.
+   Also the public shared page (/share/...), which shows the same results to someone signed out. */
+.email-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--gap); align-items: start; }
+.email-side { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+
+/* A time as a headline number ("3 Nov, 13:17") is smaller than a count. */
+.stat .v .stat-when { font-size: 24px; letter-spacing: -0.01em; display: inline-block; padding-top: 6px; }
+.stat .v .stat-when .faint { font-size: 28px; }
+
+/* ---------- Not sent yet: three steps ----------
+   Each step has a small square. Waiting: dashed (the app's "not yet"). The step to do now: solid blue.
+   Finished: soft green with a drawn tick. */
+.step-list { list-style: none; margin: 0; padding: 0; }
+.step { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 16px; padding: 22px var(--pad); border-bottom: 1px solid var(--rule); }
+.step:last-child { border-bottom: 0; }
+.step-n {
+  width: 32px; height: 32px; border-radius: 10px; border: 1.5px dashed var(--rule-hover);
+  display: grid; place-items: center; font-family: var(--font-game); font-size: 16px; font-weight: 500; color: var(--ink-3);
+  font-variant-numeric: tabular-nums; background: transparent;
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.step-n svg { display: block; }
+.step-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.step-body h3 { font-size: var(--fs-body); color: var(--ink-2); padding-top: 6px; transition: color 0.15s; }
+.step-body p { color: var(--ink-2); font-size: var(--fs-ui); max-width: 62ch; }
+.step-body > .actions { margin-top: 4px; }
+.step.current .step-n { background: var(--g-blue); border: 1.5px solid var(--g-blue); color: var(--card); }
+.step.current h3 { color: var(--ink); }
+.step.done .step-n { background: var(--g-green-wash); border: 1.5px solid color-mix(in oklab, var(--g-green) 45%, transparent); color: var(--g-green-ink); }
+.step.done h3 { color: var(--ink); }
+.step-links { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+/* What the send earns: a small orange chip (orange is points everywhere in the app). */
+.step-body > p.step-worth {
+  align-self: flex-start; padding: 5px 12px; border-radius: 12px; font-size: var(--fs-small);
+  background: var(--g-orange-wash); color: var(--g-orange-ink);
+}
+
+/* Tracked links to copy, inside step 2 */
+.link-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--rule); border-radius: var(--radius-sm); }
+.link-item { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 12px; border-bottom: 1px solid var(--rule); }
+.link-item:last-child { border-bottom: 0; }
+.link-item .url { flex: 1; min-width: 0; font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* "Not sure it copied?" box */
+.paste-check {
+  padding: 10px 12px; border: 1px dashed var(--rule-strong); border-radius: var(--radius-sm);
+  font-size: var(--fs-small); color: var(--ink-2); background: var(--paper-2); cursor: text; caret-color: transparent;
+  transition: border-color 0.12s, background-color 0.12s;
+}
+.paste-check:hover { border-color: var(--rule-hover); }
+.paste-check:focus { outline: none; border-color: var(--blue); border-style: solid; background: var(--card); }
+.paste-check.ok { border-style: solid; border-color: var(--green-line); background: var(--green-wash); color: var(--green-ink); }
+.paste-check.wrong { border-style: solid; border-color: var(--red-line); background: var(--red-wash); color: var(--red-ink); }
+
+/* ---------- Opens over time: two thin bars a day ---------- */
+.day-chart { display: flex; flex-direction: column; gap: 16px; }
+.day-bars {
+  position: relative; display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 4px;
+  align-items: end; height: 124px; border-bottom: 1px solid var(--rule-strong);
+}
+.day-bars > .day { height: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; border-radius: 4px 4px 0 0; }
+.day-bars > .day.on { background: var(--hover); }
+.day-bars .day > i { display: block; flex: 0 1 12px; min-width: 2px; border-radius: 4px 4px 0 0; }
+.day-bars .day > i.o { background: var(--m-opened); }
+.day-bars .day > i.c { background: var(--m-clicked); }
+
+/* ---------- Activity ---------- */
+.tl-hint { padding: 12px var(--pad); border-bottom: 1px solid var(--rule); background: var(--paper-2); font-size: var(--fs-small); color: var(--ink-2); line-height: 1.5; }
+.tl-main b { overflow-wrap: break-word; }
+.tl-main b .pill { margin-left: 8px; vertical-align: 1px; font-size: var(--fs-micro); color: var(--ink-2); overflow-wrap: normal; }
+.tl-item.ignored { background: var(--paper-2); }
+.tl-item.ignored .tl-main b { color: var(--ink-3); }
+.tl-item .inline-form { align-self: center; }
+
+/* Each line of activity starts with a small drawn mark in its status colour:
+   opened green, clicked violet, maybe sun. A line that does not count is a dashed ring. */
+.tl-item { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 14px; padding-block: 13px; }
+.tl-dot {
+  --hw: var(--grey-wash); --hi: var(--ink-3);
+  position: relative; width: 28px; height: 28px; margin: 0; border-radius: 50%; background: var(--hw);
+  border: 1px solid color-mix(in oklab, var(--hi) 22%, transparent);
+}
+.tl-dot::after {
+  content: ""; position: absolute; inset: 5px; background: var(--hi);
+  -webkit-mask: var(--glyph) center / contain no-repeat; mask: var(--glyph) center / contain no-repeat;
+}
+.tl-dot.real, .tl-dot.click, .tl-dot.maybe { background: var(--hw); }
+.tl-dot.real { --hw: var(--g-green-wash); --hi: var(--g-green-ink); --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.2 10.3 12 3.6l8.8 6.7V18a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2z'/%3E%3Cpath d='m3.6 10.8 8.4 5.6 8.4-5.6'/%3E%3C/svg%3E"); }
+.tl-dot.click { --hw: var(--g-violet-wash); --hi: var(--g-violet-ink); --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8.2 8.2 20 12.9l-5.1 1.8-1.9 5.3z'/%3E%3Cpath d='M4.2 4.2 5.7 5.7M4.2 10.6 5.9 10.1M10.6 4.2 10.1 5.9'/%3E%3C/svg%3E"); }
+.tl-dot.maybe { --hw: var(--g-sun-wash); --hi: var(--g-sun-ink); --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.6'/%3E%3Cpath d='M9.6 9.7a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2-2.4 3.5'/%3E%3Cpath d='M12 16.9h.01'/%3E%3C/svg%3E"); }
+.tl-dot.ignored { --hw: transparent; --hi: var(--ink-3); background: transparent; border: 1.5px dashed var(--rule-hover); --glyph: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.2 10.3 12 3.6l8.8 6.7V18a2 2 0 0 1-2 2H5.2a2 2 0 0 1-2-2z'/%3E%3Cpath d='m3.6 10.8 8.4 5.6 8.4-5.6'/%3E%3C/svg%3E"); }
+.tl-dot.ignored::after { inset: 4px; }
+.tl-main { padding-top: 1px; }
+.me-btn { color: var(--ink-2); }
+.me-btn:hover { color: var(--ink); }
+
+/* ---------- Right column ---------- */
+.fact dd.fact-long { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.again-body { padding: 16px var(--pad) 18px; display: flex; flex-direction: column; gap: 12px; }
+.link-rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+.link-rows li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px var(--pad); border-bottom: 1px solid var(--rule); }
+.link-rows li:last-child { border-bottom: 0; }
+.link-rows .url { grid-column: 1 / -1; font-size: var(--fs-small); overflow-wrap: anywhere; }
+.link-rows .clicks { font-size: var(--fs-small); color: var(--ink-2); }
+.link-rows .clicks.has { justify-self: start; padding: 2px 9px; border-radius: 999px; background: var(--g-violet-wash); color: var(--g-violet-ink); }
+.side-quiet { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* ---------- The shared page (signed out) ---------- */
+.share-main { max-width: 760px; }
+.share-brand { padding-bottom: 4px; }
+.share-foot { display: flex; flex-direction: column; gap: 4px; font-size: var(--fs-small); color: var(--ink-3); }
+
+@media (max-width: 1100px) {
+  .email-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 960px) {
+  .stat .v .stat-when { font-size: 19px; padding-top: 4px; }
+  .day-bars { height: 104px; gap: 2px; }
+  .day-bars > .day { gap: 1px; }
+  .step { gap: 12px; padding: 18px var(--pad); }
+  .tl-item { gap: 10px; }
+}
+/* Quiet buttons at the foot of the right column keep their words at the left edge. */
+.side-quiet .sbtn-stack { justify-items: start; }
+.share-main .stat .v .stat-when { font-size: 20px; white-space: nowrap; }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { IconCheck, IconCopy } from "./Icons";
 
 /**
  * Copies rich content (HTML) so that pasting into Gmail inserts a real picture or
@@ -38,11 +37,12 @@ async function copyRich(html: string, plain: string) {
   return ok;
 }
 
-function useCopied() {
+function useCopied(onDone?: () => void) {
   const [state, setState] = useState<"idle" | "done" | "failed">("idle");
   const run = async (fn: () => Promise<boolean>) => {
     const ok = await fn().catch(() => false);
     setState(ok ? "done" : "failed");
+    if (ok) onDone?.();
     window.setTimeout(() => setState("idle"), 2200);
   };
   return [state, run] as const;
@@ -51,24 +51,22 @@ function useCopied() {
 const escape = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-export function CopyPictureButton({ src, primary = true }: { src: string; primary?: boolean }) {
-  const [state, run] = useCopied();
+export function CopyPictureButton({ src, primary = true, onCopied }: { src: string; primary?: boolean; onCopied?: () => void }) {
+  const [state, run] = useCopied(onCopied);
   const html = `<img src="${escape(src)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;">`;
   return (
     <button
       type="button"
       className={`btn ${state === "done" ? "done" : primary ? "btn-primary" : ""}`}
-      data-src={src}
       onClick={() => run(() => copyRich(html, " "))}
     >
-      {state === "done" ? <IconCheck /> : <IconCopy />}
       {state === "done" ? "Copied. Now paste it in Gmail" : state === "failed" ? "Couldn't copy. Try again" : "Copy tracking picture"}
     </button>
   );
 }
 
 /** A box you can paste into, to confirm the tracking picture really is on your clipboard. */
-export function PasteCheck() {
+export function PasteCheck({ onOk }: { onOk?: () => void } = {}) {
   const [result, setResult] = useState<"idle" | "ok" | "wrong">("idle");
   return (
     <div
@@ -81,17 +79,19 @@ export function PasteCheck() {
       onPaste={(e) => {
         e.preventDefault();
         const html = e.clipboardData.getData("text/html");
-        setResult(/\/o\/[0-9A-Za-z]{22}\.gif/.test(html) ? "ok" : "wrong");
+        const ok = /\/o\/[0-9A-Za-z]{22}\.gif/.test(html);
+        setResult(ok ? "ok" : "wrong");
+        if (ok) onOk?.();
       }}
       onKeyDown={(e) => {
         if (!(e.metaKey || e.ctrlKey)) e.preventDefault();
       }}
     >
       {result === "ok"
-        ? "✓ The tracking picture is copied. Paste it into Gmail the same way."
+        ? "The tracking picture is copied. Paste it into Gmail the same way."
         : result === "wrong"
           ? "That isn't the tracking picture. Click “Copy tracking picture” first, then paste again."
-          : "Not sure it copied? Click here and paste (⌘V or Ctrl+V) to check."}
+          : "Not sure it copied? Click in this box and paste (⌘V or Ctrl+V) to check."}
     </div>
   );
 }
@@ -104,9 +104,9 @@ export function CopyLinkButton({ trackedUrl, originalUrl }: { trackedUrl: string
     <button
       type="button"
       className={`btn btn-sm ${state === "done" ? "done" : ""}`}
+      aria-label={state === "done" ? `Copied link to ${shown}` : `Copy link to ${shown}`}
       onClick={() => run(() => copyRich(html, trackedUrl))}
     >
-      {state === "done" ? <IconCheck /> : <IconCopy />}
       {state === "done" ? "Copied" : "Copy link"}
     </button>
   );
@@ -125,7 +125,6 @@ export function CopyTextButton({ text, label = "Copy" }: { text: string; label?:
         })
       }
     >
-      {state === "done" ? <IconCheck /> : <IconCopy />}
       {state === "done" ? "Copied" : label}
     </button>
   );
