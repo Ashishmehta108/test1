@@ -6,6 +6,7 @@ import { LevelMark } from "@/components/game/LevelMark";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Avatar } from "@/components/ui";
 import { levelFor, points } from "@/lib/game";
+import { EditMember } from "./EditMember";
 import { outcomeSlices } from "./outcomes";
 
 export type Member = {
@@ -91,6 +92,7 @@ export function MemberRow({ m, isMe }: { m: Member; isMe: boolean }) {
             </SubmitButton>
           </form>
         )}
+        <EditMember id={m.id} name={m.name} email={m.email} isMe={isMe} joined={!pending} />
         {!isMe &&
           (m.active ? (
             <form action={setActive.bind(null, m.id, false)} className="act-second confirm">

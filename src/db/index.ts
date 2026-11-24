@@ -29,16 +29,37 @@ async function connect(): Promise<{ db: Db; migrate: Migrate }> {
     clean.searchParams.delete("sslmode"); // ssl is set explicitly below
     // Some hosts (Aiven) use their own certificate authority: paste its certificate into DATABASE_CA.
     const ca = process.env.DATABASE_CA?.trim().replace(/\\n/g, "\n");
+    const base = { connectionString: clean.toString(), ssl: wantsSsl ? (ca ? { ca } : true) : false };
+    // Hosts quietly drop connections that sit unused (and a laptop going to sleep does too).
+    // A question sent down a dropped connection used to wait forever, so the page never loaded.
+    // Now: unused connections are let go after 10s and every connection is replaced after
+    // 5 minutes, reaching the database gives up after 10s and any one question after 10s,
+    // so the worst case is a short wait and a "try again" message instead of a hang.
     const pool = new Pool({
-      connectionString: clean.toString(),
-      ssl: wantsSsl ? (ca ? { ca } : true) : false,
-      max: 4,
+      ...base,
+      max: 8,
       keepAlive: true,
-      connectionTimeoutMillis: 15_000,
+      keepAliveInitialDelayMillis: 10_000,
+      idleTimeoutMillis: 10_000,
+      maxLifetimeSeconds: 300,
+      connectionTimeoutMillis: 10_000,
+      statement_timeout: 8_000,
+      query_timeout: 10_000,
     });
     // A connection the host closes while idle must not take the whole app down.
     pool.on("error", (err) => console.error("[tracker] database connection dropped", err.message));
-    return { db: drizzle(pool, { schema }), migrate: migrate as unknown as Migrate };
+    // Database upgrades can take longer than a normal question, so they get their own
+    // single connection without those limits, closed again straight after.
+    const migrateOwn: Migrate = async (_db, config) => {
+      const own = new Pool({ ...base, max: 1, connectionTimeoutMillis: 15_000 });
+      own.on("error", (err) => console.error("[tracker] database connection dropped", err.message));
+      try {
+        await (migrate as unknown as Migrate)(drizzle(own, { schema }) as never, config);
+      } finally {
+        await own.end();
+      }
+    };
+    return { db: drizzle(pool, { schema }), migrate: migrateOwn };
   }
 
   if (url) {

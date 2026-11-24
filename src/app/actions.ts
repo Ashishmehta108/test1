@@ -1,7 +1,7 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { and, eq, exists, gt, isNull, sql } from "drizzle-orm";
+import { and, eq, exists, gt, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -212,6 +212,47 @@ export async function inviteUser(form: FormData) {
     .returning({ id: users.id });
   if (!created) back("/team", { error: "exists", name, email });
   back("/team", { invited: id });
+}
+
+export type EditMemberState = {
+  error?: string;
+  field?: "name" | "email";
+  /** What was typed, so it is still there after a problem. */
+  values?: { name: string; email: string };
+  saved?: number;
+};
+
+const EMAIL_TAKEN = "Someone else on the team already uses that email.";
+
+/** The admin changes someone's name or the email they sign in with. */
+export async function updateMember(userId: string, _prev: EditMemberState, form: FormData): Promise<EditMemberState> {
+  await requireAdmin();
+  const name = text(form, "name").slice(0, 80);
+  const email = text(form, "email").toLowerCase();
+  const values = { name, email };
+  if (!name) return { error: "Add their name so you can tell people apart.", field: "name", values };
+  if (!isEmail(email)) return { error: "That email address doesn't look right. It should look like riya@acme.com.", field: "email", values };
+
+  try {
+    const db = await getDb();
+    const [taken] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.email, email), ne(users.id, userId)))
+      .limit(1);
+    if (taken) return { error: EMAIL_TAKEN, field: "email", values };
+
+    const [done] = await db.update(users).set({ name, email }).where(eq(users.id, userId)).returning({ id: users.id });
+    if (!done) return { error: "That person is no longer on the team.", values };
+  } catch (err) {
+    // Two saves at the same moment: the database itself refuses the second use of an email.
+    const code = (err as { code?: string; cause?: { code?: string } })?.cause?.code ?? (err as { code?: string })?.code;
+    if (code === "23505") return { error: EMAIL_TAKEN, field: "email", values };
+    console.error("[tracker] could not update person", err);
+    return { error: "Couldn't save just now. Please try again.", values };
+  }
+  revalidatePath("/", "layout");
+  return { saved: Date.now() };
 }
 
 export async function renewInvite(userId: string) {

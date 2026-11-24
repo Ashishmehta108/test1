@@ -40,7 +40,7 @@ export default async function AccountPage({ searchParams }: { searchParams: SP }
               <dd>{me.role === "admin" ? <span className="pill pill-admin">Admin</span> : <span className="pill">Team member</span>}</dd>
             </div>
           </dl>
-          <p className="quiet-note">To change your name or email, ask your admin.</p>
+          <p className="quiet-note">To change your name or sign-in email, ask your admin.</p>
         </section>
 
         <section className="card" aria-labelledby="password-title">
