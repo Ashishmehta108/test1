@@ -4,17 +4,32 @@ import Link from "next/link";
 import { LevelMark } from "@/components/game/LevelMark";
 import { hueStyle, prizeFor } from "@/components/game/LevelPrize";
 import type { Level } from "@/lib/game";
-import { useEffect, useRef } from "react";
-import { logout, setTheme } from "@/app/actions";
-import { THEME_OPTIONS, type Theme } from "@/lib/theme";
+import { useEffect, useRef, useState } from "react";
+import { logout } from "@/app/actions";
+import { THEME_COOKIE, THEME_OPTIONS, type Theme } from "@/lib/theme";
 import { Avatar } from "./ui";
 
 /** A person's level, as the menu shows it. */
 export type MenuLevel = Level;
 
 /** Your name and level at the bottom of the menu. Click it for your level, light/dark and signing out. */
-export function UserMenu({ name, email, admin, theme, level }: { name: string; email: string; admin: boolean; theme: Theme; level: MenuLevel }) {
+export function UserMenu({ name, email, admin, theme: startTheme, level }: { name: string; email: string; admin: boolean; theme: Theme; level: MenuLevel }) {
   const ref = useRef<HTMLDetailsElement>(null);
+  const [theme, setThemeState] = useState<Theme>(startTheme);
+
+  // Light, dark or "match my device" changes at once in the browser. The choice is saved in a cookie
+  // so the server draws the next page the same way. No trip to the server (or the database) is needed.
+  const pickTheme = (next: Theme) => {
+    setThemeState(next);
+    const root = document.documentElement;
+    if (next === "system") root.removeAttribute("data-theme");
+    else root.setAttribute("data-theme", next);
+    const secure = window.location.protocol === "https:" ? "; secure" : "";
+    document.cookie =
+      next === "system"
+        ? `${THEME_COOKIE}=; path=/; max-age=0; samesite=lax${secure}`
+        : `${THEME_COOKIE}=${next}; path=/; max-age=31536000; samesite=lax${secure}`;
+  };
 
   // Close when clicking anywhere else, or pressing Escape.
   useEffect(() => {
@@ -97,13 +112,13 @@ export function UserMenu({ name, email, admin, theme, level }: { name: string; e
           <span className="pop-game-link">Your profile, prizes and stamps</span>
         </Link>
         <span className="pop-label" id="appearance-label">Appearance</span>
-        <form action={setTheme} className="segmented theme-toggle" role="group" aria-labelledby="appearance-label">
+        <div className="segmented theme-toggle" role="group" aria-labelledby="appearance-label">
           {THEME_OPTIONS.map((o) => (
-            <button key={o.value} type="submit" name="theme" value={o.value} aria-pressed={theme === o.value}>
+            <button key={o.value} type="button" aria-pressed={theme === o.value} onClick={() => pickTheme(o.value)}>
               {o.label}
             </button>
           ))}
-        </form>
+        </div>
         <hr />
         <form action={logout}>
           <button type="submit" className="pop-item">

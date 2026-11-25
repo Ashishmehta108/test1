@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useOptimistic, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { disableShare, enableShare, renewShare } from "@/app/share-actions";
 import { ConfirmButton } from "./ConfirmButton";
@@ -16,11 +16,25 @@ function PendingButton({ idle, busy, className }: { idle: string; busy: string; 
   );
 }
 
+/**
+ * What the card is busy doing right now, shown the moment a button is pressed.
+ * "creating" = turning sharing on, "renewing" = making a new link, "stopping" = turning sharing off.
+ * null means the server's answer is showing.
+ */
+type Busy = "creating" | "renewing" | "stopping" | null;
+
 /** Lets the sender turn a private, view-only link to this email's results on or off. */
 export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: string | null }) {
   const [copied, setCopied] = useState<"idle" | "done" | "failed">("idle");
   const [canShare, setCanShare] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // The real server value. Shown until a button is pressed, then the press shows instantly.
+  const serverView = useMemo(() => ({ url: shareUrl, busy: null as Busy }), [shareUrl]);
+  const [view, addOptimistic] = useOptimistic(serverView, (_current, next: Busy) => ({
+    url: null as string | null,
+    busy: next,
+  }));
 
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
@@ -32,7 +46,12 @@ export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: st
     return () => window.clearTimeout(t);
   }, [copied]);
 
-  if (!shareUrl) {
+  // Sharing counts as on while a link is showing or one is being made. It is off while stopping.
+  const isOn = view.busy ? view.busy !== "stopping" : view.url !== null;
+  const liveUrl = view.busy ? null : view.url;
+  const placeholder = view.busy === "renewing" ? "Creating a new link…" : "Creating your link…";
+
+  if (!isOn) {
     return (
       <section className="card" aria-labelledby="share-heading">
         <div className="card-head">
@@ -40,7 +59,12 @@ export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: st
         </div>
         <div className="share-card">
           <p className="share-text">Make a private link so someone else can see these results. They don&apos;t need to sign in.</p>
-          <form action={enableShare.bind(null, emailId)}>
+          <form
+            action={async () => {
+              addOptimistic("creating");
+              await enableShare(emailId);
+            }}
+          >
             <PendingButton className="btn" idle="Create share link" busy="Creating link…" />
           </form>
         </div>
@@ -49,8 +73,9 @@ export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: st
   }
 
   const copy = async () => {
+    if (!liveUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await navigator.clipboard.writeText(liveUrl);
       setCopied("done");
     } catch {
       // Clipboard blocked: select the link so it can be copied by hand.
@@ -60,12 +85,15 @@ export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: st
   };
 
   const share = async () => {
+    if (!liveUrl) return;
     try {
-      await navigator.share({ title: "Email results", url: shareUrl });
+      await navigator.share({ title: "Email results", url: liveUrl });
     } catch {
       /* closed the sheet, nothing to do */
     }
   };
+
+  const waiting = liveUrl === null;
 
   return (
     <section className="card" aria-labelledby="share-heading">
@@ -81,11 +109,18 @@ export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: st
             ref={inputRef}
             className="input share-input"
             readOnly
-            value={shareUrl}
+            value={liveUrl ?? ""}
+            placeholder={placeholder}
             aria-label="Share link"
+            aria-busy={waiting || undefined}
             onFocus={(e) => e.currentTarget.select()}
           />
-          <button type="button" className={`btn ${copied === "done" ? "done" : "btn-primary"}`} onClick={copy}>
+          <button
+            type="button"
+            className={`btn ${copied === "done" ? "done" : "btn-primary"}`}
+            onClick={copy}
+            disabled={waiting}
+          >
             {copied === "done" ? "Copied" : "Copy link"}
           </button>
         </div>
@@ -96,17 +131,29 @@ export function ShareCard({ emailId, shareUrl }: { emailId: string; shareUrl: st
 
         {canShare && (
           <div className="actions">
-            <button type="button" className="btn btn-sm" onClick={share}>
+            <button type="button" className="btn btn-sm" onClick={share} disabled={waiting}>
               Share…
             </button>
           </div>
         )}
 
         <div className="share-quiet">
-          <form action={renewShare.bind(null, emailId)} className="inline-form">
+          <form
+            action={async () => {
+              addOptimistic("renewing");
+              await renewShare(emailId);
+            }}
+            className="inline-form"
+          >
             <ConfirmButton className="btn btn-quiet btn-sm" label="New link" confirmLabel="Click again for a new link" />
           </form>
-          <form action={disableShare.bind(null, emailId)} className="inline-form">
+          <form
+            action={async () => {
+              addOptimistic("stopping");
+              await disableShare(emailId);
+            }}
+            className="inline-form"
+          >
             <PendingButton className="btn btn-quiet btn-sm" idle="Stop sharing" busy="Stopping…" />
           </form>
         </div>

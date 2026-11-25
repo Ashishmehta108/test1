@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useOptimistic } from "react";
 import { deleteUser, renewInvite, setActive } from "@/app/actions";
 import { StackBar, pct } from "@/components/charts";
 import { ConfirmButton } from "@/components/ConfirmButton";
@@ -6,6 +9,7 @@ import { LevelMark } from "@/components/game/LevelMark";
 import { SubmitButton } from "@/components/SubmitButton";
 import { Avatar } from "@/components/ui";
 import { levelFor, points } from "@/lib/game";
+import { EditMember } from "./EditMember";
 import { outcomeSlices } from "./outcomes";
 
 export type Member = {
@@ -27,20 +31,33 @@ export type Member = {
   waiting: number;
 };
 
-/** One person: who they are, how their emails did, and what you can do with them. */
+type Shown = { name: string; email: string };
+
+/**
+ * One person: who they are, how their emails did, and what you can do with them.
+ * Pause, turn on, delete and edit show their result on the row straight away. The real
+ * answer from the server replaces it when it arrives, and if the server refuses, the row
+ * goes back to how it was.
+ */
 export function MemberRow({ m, isMe }: { m: Member; isMe: boolean }) {
+  const [active, showActive] = useOptimistic(m.active, (_before: boolean, next: boolean) => next);
+  const [gone, showGone] = useOptimistic(false, (_before: boolean, next: true) => next);
+  const [shown, showSaved] = useOptimistic<Shown, Shown>({ name: m.name, email: m.email }, (_before, next) => next);
+
+  if (gone) return null;
+
   const pending = !m.hasPassword;
   // Same rules as the leaderboard: all-time points from emails sent, opened and clicked.
   const allPoints = points({ sent: m.sent, opened: m.opened, clicked: m.clicked });
   const level = levelFor(allPoints).level;
   return (
-    <li className={`member${pending ? " member-pending" : ""}${m.active ? "" : " member-paused"}`}>
-      <Avatar name={m.name} admin={m.role === "admin"} />
+    <li className={`member${pending ? " member-pending" : ""}${active ? "" : " member-paused"}`}>
+      <Avatar name={shown.name} admin={m.role === "admin"} />
 
       <div className="member-main">
         <div className="member-name">
-          <b className="member-title" title={m.name}>
-            {m.name}
+          <b className="member-title" title={shown.name}>
+            {shown.name}
           </b>
           {isMe && <span className="member-you">(you)</span>}
           {!pending && (
@@ -50,11 +67,11 @@ export function MemberRow({ m, isMe }: { m: Member; isMe: boolean }) {
             </span>
           )}
           {m.role === "admin" && <span className="pill pill-admin">Admin</span>}
-          {!m.active && <span className="pill pill-paused">Paused</span>}
-          {pending && m.active && <span className="pill pill-pending">{m.inviteValid ? "Invite sent" : "Invite expired"}</span>}
+          {!active && <span className="pill pill-paused">Paused</span>}
+          {pending && active && <span className="pill pill-pending">{m.inviteValid ? "Invite sent" : "Invite expired"}</span>}
         </div>
-        <span className="member-email" title={m.email}>
-          {m.email}
+        <span className="member-email" title={shown.email}>
+          {shown.email}
         </span>
         <div className="member-stats">
           {pending ? (
@@ -63,7 +80,7 @@ export function MemberRow({ m, isMe }: { m: Member; isMe: boolean }) {
             <>
               <div className="member-bar">
                 <StackBar
-                  label={`How ${m.name}'s emails did`}
+                  label={`How ${shown.name}'s emails did`}
                   slices={outcomeSlices({ clicked: m.clicked, opened: m.justOpened, maybe: m.maybe, waiting: m.waiting })}
                 />
               </div>
@@ -79,32 +96,58 @@ export function MemberRow({ m, isMe }: { m: Member; isMe: boolean }) {
             View results
           </Link>
         )}
-        {pending && m.active && m.inviteValid && (
+        {pending && active && m.inviteValid && (
           <Link className="btn btn-sm act-main" href={`/team?invited=${m.id}`}>
             Show invite link
           </Link>
         )}
-        {pending && m.active && !m.inviteValid && (
+        {pending && active && !m.inviteValid && (
           <form action={renewInvite.bind(null, m.id)} className="act-main">
-            <SubmitButton className="btn btn-sm" pendingText="Creating…">
+            <SubmitButton className="btn btn-sm" pendingText="Creating link…">
               New invite link
             </SubmitButton>
           </form>
         )}
+        <EditMember
+          id={m.id}
+          name={shown.name}
+          email={shown.email}
+          isMe={isMe}
+          joined={!pending}
+          onSaving={(values) => showSaved(values)}
+        />
         {!isMe &&
-          (m.active ? (
-            <form action={setActive.bind(null, m.id, false)} className="act-second confirm">
+          (active ? (
+            <form
+              action={async () => {
+                showActive(false);
+                await setActive(m.id, false);
+              }}
+              className="act-second confirm"
+            >
               <ConfirmButton className="btn btn-sm btn-quiet" label="Pause" confirmLabel="Click to confirm" pendingText="Pausing…" />
             </form>
           ) : (
-            <form action={setActive.bind(null, m.id, true)} className="act-second">
+            <form
+              action={async () => {
+                showActive(true);
+                await setActive(m.id, true);
+              }}
+              className="act-second"
+            >
               <SubmitButton className="btn btn-sm" pendingText="Turning on…">
                 Turn back on
               </SubmitButton>
             </form>
           ))}
         {!isMe && (
-          <form action={deleteUser.bind(null, m.id)} className="act-delete confirm">
+          <form
+            action={async () => {
+              showGone(true);
+              await deleteUser(m.id);
+            }}
+            className="act-delete confirm"
+          >
             <ConfirmButton
               className="btn btn-sm btn-quiet btn-danger"
               label="Delete"

@@ -41,11 +41,12 @@
 .member-bar { flex: 0 1 200px; min-width: 72px; }
 
 /* Buttons sit in three fixed slots so they line up from row to row:
-   the main button, pause (or turn back on), delete. */
-.member-actions { display: grid; grid-template-columns: 124px 104px 64px; gap: 4px; align-items: center; }
+   the main button, edit, pause (or turn back on), delete. */
+.member-actions { display: grid; grid-template-columns: 124px 52px 104px 64px; gap: 4px; align-items: center; }
 .member-actions .act-main { grid-column: 1; }
-.member-actions .act-second { grid-column: 2; }
-.member-actions .act-delete { grid-column: 3; }
+.member-actions .act-edit { grid-column: 2; }
+.member-actions .act-second { grid-column: 3; }
+.member-actions .act-delete { grid-column: 4; }
 .member-actions form { display: flex; justify-content: center; margin: 0; }
 .member-actions form .btn:not(.btn-quiet) { flex: 1; }
 /* A button keeps room for its "Pausing…" label even when idle. Here it only takes the room of what it says now,
@@ -54,7 +55,7 @@
 /* While a button is asking "are you sure?" its longer label gets its own line, right-aligned. */
 .member-actions .confirm:has(> button[type="submit"]) { grid-column: 1 / -1; grid-row: 2; justify-self: end; }
 
-@container members (max-width: 639px) {
+@container members (max-width: 699px) {
   .member { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
   .member-actions { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 4px; }
   .member-actions form { display: block; }
