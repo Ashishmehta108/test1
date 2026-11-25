@@ -3,7 +3,6 @@
 import bcrypt from "bcryptjs";
 import { and, eq, exists, gt, isNull, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createSession, destroySession, requireAdmin, requireUser, type User } from "@/lib/auth";
 import { at, getDb } from "@/db";
@@ -11,7 +10,6 @@ import { clickEvents, emails, links, openEvents, sessions, users } from "@/db/sc
 import { isEmail } from "@/lib/format";
 import { newId, randomToken } from "@/lib/ids";
 import { linksIn, MAX_NOTES, subjectOf } from "@/lib/notes";
-import { THEME_COOKIE, themeFrom } from "@/lib/theme";
 import { recompute } from "@/lib/track";
 
 const INVITE_HOURS = 72;
@@ -83,15 +81,6 @@ export async function changePassword(form: FormData) {
   if (next.length < 8) back("/account", { error: "short" });
   await db.update(users).set({ passwordHash: await bcrypt.hash(next, 10) }).where(eq(users.id, user.id));
   back("/account", { ok: "password" });
-}
-
-/** Appearance: remembers light, dark, or "match my device" on this browser. */
-export async function setTheme(form: FormData) {
-  const choice = themeFrom(text(form, "theme"));
-  const jar = await cookies();
-  if (choice === "system") jar.delete(THEME_COOKIE);
-  else jar.set(THEME_COOKIE, choice, { path: "/", maxAge: 365 * 24 * 60 * 60, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
-  revalidatePath("/", "layout");
 }
 
 /* ---------- Tracked emails ---------- */
