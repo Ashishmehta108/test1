@@ -63,7 +63,11 @@ async function connect(): Promise<{ db: Db; migrate: Migrate }> {
   }
 
   if (url) {
-    const { neon } = await import("@neondatabase/serverless");
+    const { neon, neonConfig } = await import("@neondatabase/serverless");
+    // By default the driver asks an "api." copy of the database's address, which some home
+    // routers refuse to look up (the page then fails with "fetch failed"). The database's own
+    // address answers the same requests, so use that one.
+    neonConfig.fetchEndpoint = (host) => `https://${host}/sql`;
     const { drizzle } = await import("drizzle-orm/neon-http");
     const { migrate } = await import("drizzle-orm/neon-http/migrator");
     return { db: drizzle(neon(url), { schema }), migrate: migrate as unknown as Migrate };
